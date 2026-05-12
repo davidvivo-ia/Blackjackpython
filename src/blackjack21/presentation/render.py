@@ -16,28 +16,51 @@ from rich.text import Text
 from blackjack21.domain.cards import Card, Rank, Suit
 from blackjack21.domain.hand import Hand, evaluate
 
-CARD_WIDTH = 7
+CARD_WIDTH = 9  # 9 cells outer = 5 cells of usable content with padding (0, 1)
 CARD_HEIGHT = 5
+_INNER_WIDTH = CARD_WIDTH - 2 - 2  # 2 cells border + 2 cells padding
 
 
 def _suit_color(suit: Suit) -> str:
     return "danger" if suit.is_red else "ink"
 
 
+def _padded_rank_left(rank: str) -> str:
+    """Render the rank in the top-left of the card."""
+    return rank.ljust(_INNER_WIDTH)
+
+
+def _padded_rank_right(rank: str) -> str:
+    """Render the rank in the bottom-right of the card."""
+    return rank.rjust(_INNER_WIDTH)
+
+
+def _padded_suit(suit_glyph: str) -> str:
+    """Render the suit centered."""
+    return suit_glyph.center(_INNER_WIDTH)
+
+
 def render_card(card: Card, *, ascii_only: bool = False) -> RenderableType:
     """Return a rich Panel that draws a single card.
 
-    The panel is a fixed 7 by 5 rectangle so multiple cards align.
+    The panel is a fixed 9 by 5 rectangle so multiple cards align. Inside
+    we render the rank in the top-left and bottom-right corners and the
+    suit glyph centered on the middle row.
     """
     rank = card.rank.value
     if ascii_only:
         suit_glyph = card.suit.value
-        face = Text.from_markup(f"[bold]{rank}[/]\n {suit_glyph}\n[bold]   {rank}[/]")
+        face = Text.from_markup(
+            f"[bold]{_padded_rank_left(rank)}[/]\n"
+            f"{_padded_suit(suit_glyph)}\n"
+            f"[bold]{_padded_rank_right(rank)}[/]"
+        )
     else:
         color = _suit_color(card.suit)
         face = Text.from_markup(
-            f"[bold {color}]{rank}[/]\n [{color}]{card.suit.glyph}[/]\n"
-            f"[bold {color}]   {rank}[/]"
+            f"[bold {color}]{_padded_rank_left(rank)}[/]\n"
+            f"[{color}]{_padded_suit(card.suit.glyph)}[/]\n"
+            f"[bold {color}]{_padded_rank_right(rank)}[/]"
         )
     return Panel(
         face,
@@ -50,15 +73,14 @@ def render_card(card: Card, *, ascii_only: bool = False) -> RenderableType:
 
 def render_back(*, ascii_only: bool = False) -> RenderableType:
     """Render a face-down card."""
-    if ascii_only:
-        face = Text("###\n###\n###", style="phosphor-dim")
-    else:
-        face = Text("░▒▓\n▓▒░\n░▒▓", style="phosphor-dim")
+    pattern = "###\n###\n###" if ascii_only else "░▒▓\n▓▒░\n░▒▓"
+    face = Text(pattern, style="phosphor-dim")
     return Panel(
         Align.center(face, vertical="middle"),
         width=CARD_WIDTH,
         height=CARD_HEIGHT,
         border_style="phosphor-dim",
+        padding=(0, 1),
     )
 
 

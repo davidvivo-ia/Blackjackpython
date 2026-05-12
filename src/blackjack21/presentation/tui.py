@@ -123,8 +123,8 @@ class BlackjackApp(App[int]):
         self.state = start_session(
             rules=DEFAULT_RULES, shuffler=self._shuffler, bankroll=bankroll
         )
+        # _refresh handles input visibility and focus per phase.
         self._refresh()
-        self.query_one("#bet-input", Input).focus()
 
     def _load_saved_session(self) -> SavedSession | None:
         try:
@@ -221,8 +221,8 @@ class BlackjackApp(App[int]):
             return
         self.state = next_hand(self.state)
         self.last_message = ""
+        # _refresh moves the table to AWAITING_BET and re-focuses the input.
         self._refresh()
-        self.query_one("#bet-input", Input).focus()
 
     def action_toggle_help(self) -> None:
         self.last_message = (
@@ -305,23 +305,55 @@ class BlackjackApp(App[int]):
     def _refresh_status(self) -> None:
         assert self.state is not None
         status = self.query_one("#status", Static)
+        bet_input = self.query_one("#bet-input", Input)
         match self.state.phase:
             case Phase.AWAITING_BET:
                 status.update("place a bet (1 to 500) then Enter")
+                self._show_input(bet_input, placeholder="bet (1 to 500)")
             case Phase.AWAITING_INSURANCE:
                 status.update(
-                    "insurance? Enter amount or just press [bold]I[/] to decline"
+                    "insurance? type amount and Enter, or press [bold]I[/] to decline"
                 )
+                self._show_input(bet_input, placeholder="insurance (0 = none)")
             case Phase.PLAYER_TURN:
                 legal = ", ".join(a.value for a in sorted(self.state.legal_actions()))
-                status.update(f"your turn: {legal}")
+                status.update(
+                    f"your turn: {legal} -- press [bold]H[/]/[bold]S[/]/"
+                    "[bold]D[/]/[bold]/[/]"
+                )
+                self._hide_input(bet_input)
             case Phase.DEALER_TURN:
-                status.update("dealer is playing…")
+                status.update("dealer is playing...")
+                self._hide_input(bet_input)
             case Phase.HAND_RESOLVED:
                 outcome = self.state.settlements[0].outcome
                 status.update(_outcome_banner(outcome))
+                self._hide_input(bet_input)
             case Phase.GAME_OVER:
-                status.update("[danger]BANKROLL ENDED[/] — press Q to quit, R to reset")
+                status.update(
+                    "[danger]BANKROLL ENDED[/] -- press Q to quit, "
+                    "then 'blackjack21 reset' to start over"
+                )
+                self._hide_input(bet_input)
+
+    def _show_input(self, widget: Input, *, placeholder: str) -> None:
+        widget.placeholder = placeholder
+        if not widget.display:
+            widget.display = True
+        if widget.disabled:
+            widget.disabled = False
+        if self.focused is not widget:
+            widget.focus()
+
+    def _hide_input(self, widget: Input) -> None:
+        if widget.display:
+            widget.display = False
+            widget.disabled = True
+            widget.value = ""
+        # Devolvemos el foco a la pantalla para que las bindings (H/S/D/...)
+        # disparen acciones en lugar de teclear en el Input.
+        if self.focused is widget:
+            self.set_focus(None)
 
 
 def _outcome_banner(outcome: Outcome) -> str:
