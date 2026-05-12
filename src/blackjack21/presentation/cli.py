@@ -64,13 +64,20 @@ def play(
         int,
         typer.Option(min=1, max=50, help="Number of hands to play in --demo mode."),
     ] = DEFAULT_HANDS,
+    ascii_only: Annotated[
+        bool,
+        typer.Option(
+            "--ascii",
+            help="Use plain S/H/D/C letters instead of ♠♥♦♣ glyphs (legacy fonts).",
+        ),
+    ] = False,
 ) -> None:
     """Play blackjack: interactive TUI by default, ``--demo`` for headless."""
     if demo:
         effective_seed = seed if seed is not None else 42
         run_demo(seed=effective_seed, hands=hands)
         return
-    BlackjackApp(seed=seed).run()
+    BlackjackApp(seed=seed, ascii_only=ascii_only).run()
 
 
 @app.command()

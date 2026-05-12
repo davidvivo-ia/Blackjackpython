@@ -80,6 +80,7 @@ class BlackjackApp(App[int]):
         *,
         seed: int | None = None,
         store: JsonSessionStore | None = None,
+        ascii_only: bool = False,
     ) -> None:
         super().__init__()
         # Registramos la paleta semantica en el Console de Rich que
@@ -91,6 +92,7 @@ class BlackjackApp(App[int]):
         self._store = store or JsonSessionStore()
         self._shuffler = SystemShuffler(seed=seed)
         self._biggest_pot = 0
+        self._ascii_only = ascii_only
 
     # ---- composition --------------------------------------------------
 
@@ -289,7 +291,13 @@ class BlackjackApp(App[int]):
                 Phase.PLAYER_TURN,
                 Phase.AWAITING_INSURANCE,
             )
-            dealer_panel.update_hand(render_hand(self.state.dealer, hide_first=hide))
+            dealer_panel.update_hand(
+                render_hand(
+                    self.state.dealer,
+                    hide_first=hide,
+                    ascii_only=self._ascii_only,
+                )
+            )
         else:
             dealer_panel.update_hand(Rule(style="phosphor-dim"))
         if self.state.player_hands:
@@ -297,6 +305,7 @@ class BlackjackApp(App[int]):
                 render_hand(
                     self.state.active_hand,
                     from_initial_deal=not self.state.active_hand.from_split,
+                    ascii_only=self._ascii_only,
                 )
             )
         else:

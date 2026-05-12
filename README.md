@@ -100,9 +100,13 @@ A partir de ahí:
 > salir si algo falla.
 
 > **Nota sobre terminales**: Textual rinde bien en *Windows Terminal*
-> y PowerShell modernos. El `cmd.exe` clásico es funcional pero
-> degrada los colores y algunos glifos Unicode; en ese caso pasa
-> `--ascii` (planeado para v1.1) o usa Windows Terminal.
+> y PowerShell modernos. El `cmd.exe` clásico y algunas fuentes
+> (Consolas en algunos sistemas) degradan los glifos `♠♥♦♣`. En ese
+> caso lanza con `--ascii` para usar letras `S H D C` en su lugar:
+>
+> ```bash
+> python blackjack.py play --ascii
+> ```
 
 ### Atajos de teclado (TUI)
 
