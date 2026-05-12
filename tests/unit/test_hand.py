@@ -39,9 +39,11 @@ def test_blackjack_only_from_initial_deal() -> None:
 
 def test_soft_18_then_hard_18() -> None:
     soft = evaluate((card(Rank.ACE), card(Rank.SEVEN)))
-    assert soft.total == 18 and soft.is_soft
+    assert soft.total == 18
+    assert soft.is_soft
     hard = evaluate((card(Rank.ACE), card(Rank.SEVEN), card(Rank.TEN)))
-    assert hard.total == 18 and not hard.is_soft
+    assert hard.total == 18
+    assert not hard.is_soft
 
 
 def test_bust_marks_total_as_minimum_value() -> None:

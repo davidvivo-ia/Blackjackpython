@@ -8,7 +8,6 @@ from blackjack21.domain.actions import Action
 from blackjack21.domain.cards import Card, Rank, Suit
 from blackjack21.domain.deck import Deck
 from blackjack21.domain.errors import InvalidActionError, InvalidBetError
-from blackjack21.domain.hand import Hand
 from blackjack21.domain.outcomes import Outcome
 from blackjack21.domain.rules import DEFAULT_RULES, GameRules
 from blackjack21.domain.state import (
