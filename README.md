@@ -76,6 +76,26 @@ uv run blackjack21 reset
 uv run blackjack21 doctor
 ```
 
+### Windows sin `uv`
+
+Para arrancar el juego en Windows sin instalar `uv` o `pip install`:
+
+```bat
+py programa.py            REM Abre la TUI directamente
+py programa.py play --demo --seed 42
+py programa.py doctor
+```
+
+O **doble clic** sobre `programa.bat`: detecta `py` o `python` en
+`PATH` y arranca la TUI. Requisitos: Python 3.13+ y las dependencias
+del proyecto (`pip install -e .` o ejecutar dentro de un entorno
+creado con `uv sync`).
+
+> **Nota sobre terminales**: Textual rinde bien en *Windows Terminal*
+> y PowerShell modernos. El `cmd.exe` clásico es funcional pero
+> degrada los colores y algunos glifos Unicode; en ese caso pasa
+> `--ascii` (planeado para v1.1) o usa Windows Terminal.
+
 ### Atajos de teclado (TUI)
 
 | Tecla | Acción |
