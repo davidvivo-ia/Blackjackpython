@@ -78,18 +78,24 @@ uv run blackjack21 doctor
 
 ### Windows sin `uv`
 
-Para arrancar el juego en Windows sin instalar `uv` o `pip install`:
+Para arrancar el juego en Windows sin instalar `uv` o `pip install`,
+usa los launchers `blackjack.py` / `blackjack.bat` (homenaje al
+`blackjack.bas` original):
 
 ```bat
-py programa.py            REM Abre la TUI directamente
-py programa.py play --demo --seed 42
-py programa.py doctor
+py blackjack.py            REM Abre la TUI directamente
+py blackjack.py play --demo --seed 42
+py blackjack.py doctor
+
+blackjack.bat              REM Equivalente desde cmd.exe
+.\blackjack.bat            REM Equivalente desde PowerShell
 ```
 
-O **doble clic** sobre `programa.bat`: detecta `py` o `python` en
-`PATH` y arranca la TUI. Requisitos: Python 3.13+ y las dependencias
-del proyecto (`pip install -e .` o ejecutar dentro de un entorno
-creado con `uv sync`).
+O **doble clic** sobre `blackjack.bat`: detecta `py` o `python` en
+`PATH` y arranca la TUI. **Ojo**: `python blackjack.bat` NO funciona
+(los `.bat` no son Python); ejecútalos directamente. Requisitos:
+Python 3.13+ y las dependencias del proyecto (`pip install -e .` o
+ejecutar dentro de un entorno creado con `uv sync`).
 
 > **Nota sobre terminales**: Textual rinde bien en *Windows Terminal*
 > y PowerShell modernos. El `cmd.exe` clásico es funcional pero

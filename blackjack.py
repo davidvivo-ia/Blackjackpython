@@ -1,17 +1,20 @@
 """Launcher para Windows (y cualquier sistema con Python 3.13+).
 
-Permite ejecutar el juego con ``python programa.py`` sin necesidad
+Permite ejecutar el juego con ``python blackjack.py`` sin necesidad
 de instalar el paquete ni usar ``uv``. Internamente delega en el
 mismo Typer ``app`` que la consola-script ``blackjack21``.
 
+El nombre del fichero homenajea al listado original
+``blackjack.bas`` de Ahl (1978), preservado en ``legacy/basic/``.
+
 Uso típico en Windows::
 
-    py programa.py play
-    py programa.py play --demo --seed 42
-    py programa.py doctor
+    py blackjack.py play
+    py blackjack.py play --demo --seed 42
+    py blackjack.py doctor
 
 Si arrancas haciendo doble clic, se entra directamente en la TUI
-(equivalente a ``programa.py play``).
+(equivalente a ``blackjack.py play``).
 """
 
 from __future__ import annotations
