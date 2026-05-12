@@ -77,6 +77,7 @@ ignore = [
 "src/blackjack21/presentation/**" = ["PLR0915"]
 "src/blackjack21/domain/outcomes.py" = ["PLR0911"]
 "src/blackjack21/domain/state.py" = ["PLR0911"]
+"blackjack.py" = ["PLC0415", "SIM105", "UP036"]
 
 [tool.ruff.format]
 quote-style = "double"
