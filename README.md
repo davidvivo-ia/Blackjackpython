@@ -9,6 +9,34 @@
             CREATIVE COMPUTING  MORRISTOWN, NJ
 ```
 
+## Demo
+
+```text
+───────────────────── BLACKJACK 21  ·  seed=42  ·  hands=3 ─────────────────────
+
+Hand 1  ·  bankroll 1000  ·  bet 25
+  bet 25  bankroll 1000
+  you : T♠
+  dealer: J♥
+  you : K♥
+  dealer: 4♠
+  action: STAND
+  dealer reveals: 4♠
+  dealer: 9♥
+  outcome: WIN  net +25  bankroll 1025
+
+Hand 2  ·  bankroll 1025  ·  bet 25
+  ...
+  outcome: BLACKJACK  net +37  bankroll 1062
+
+      Demo Summary
+┌────────────────┬──────┐
+│ Final bankroll │ 1037 │
+│ Hands played   │ 3    │
+│ Blackjacks     │ 1    │
+└────────────────┴──────┘
+```
+
 ## Características
 
 - **Dominio inmutable** y puro: `dataclass(frozen=True, slots=True)`,
