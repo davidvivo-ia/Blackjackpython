@@ -9,7 +9,7 @@ type-checked.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from blackjack21.domain.actions import Action
 from blackjack21.domain.cards import Card
@@ -73,7 +73,7 @@ class SessionEnded:
     kind: Literal["session_ended"] = "session_ended"
 
 
-type GameEvent = (
+GameEvent: TypeAlias = (
     BetPlaced
     | CardDealt
     | PlayerActed

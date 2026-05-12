@@ -35,6 +35,7 @@ from blackjack21.domain.state import GameState, Phase, start_session
 from blackjack21.infrastructure.persistence import JsonSessionStore
 from blackjack21.infrastructure.rng import SystemShuffler
 from blackjack21.presentation.render import render_hand
+from blackjack21.presentation.theme import build_theme
 
 
 def load_css() -> str:
@@ -81,6 +82,11 @@ class BlackjackApp(App[int]):
         store: JsonSessionStore | None = None,
     ) -> None:
         super().__init__()
+        # Registramos la paleta semantica en el Console de Rich que
+        # Textual usa para renderizar los Static/HandPanel. Sin esto
+        # los nombres "phosphor-dim", "accent", etc. revientan al
+        # parsear el markup.
+        self.console.push_theme(build_theme())
         self._seed = seed
         self._store = store or JsonSessionStore()
         self._shuffler = SystemShuffler(seed=seed)
@@ -320,11 +326,11 @@ class BlackjackApp(App[int]):
 
 def _outcome_banner(outcome: Outcome) -> str:
     table = {
-        Outcome.WIN: "[outcome-win]WIN[/] — press N for next hand",
-        Outcome.BLACKJACK: "[outcome-blackjack]BLACKJACK[/] — press N for next hand",
-        Outcome.LOSS: "[outcome-loss]LOSS[/] — press N for next hand",
-        Outcome.BUST: "[outcome-loss]BUST[/] — press N for next hand",
-        Outcome.PUSH: "[outcome-push]PUSH[/] — press N for next hand",
-        Outcome.SURRENDER: "[outcome-push]SURRENDER[/] — press N for next hand",
+        Outcome.WIN: "[bold success]WIN[/] - press N for next hand",
+        Outcome.BLACKJACK: "[bold reverse success]BLACKJACK[/] - press N for next hand",
+        Outcome.LOSS: "[bold danger]LOSS[/] - press N for next hand",
+        Outcome.BUST: "[bold danger]BUST[/] - press N for next hand",
+        Outcome.PUSH: "[bold warning]PUSH[/] - press N for next hand",
+        Outcome.SURRENDER: "[bold warning]SURRENDER[/] - press N for next hand",
     }
     return table[outcome]
