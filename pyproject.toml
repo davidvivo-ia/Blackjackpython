@@ -102,6 +102,10 @@ markers = [
 [tool.coverage.run]
 source = ["src/blackjack21"]
 branch = true
+omit = [
+    "src/blackjack21/presentation/tui.py",
+    "src/blackjack21/__main__.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [

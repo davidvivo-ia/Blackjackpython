@@ -1,0 +1,102 @@
+/*
+ * blackjack21 — phosphor green fusion theme.
+ * See docs/design.md for the colour rationale.
+ */
+
+$bg: #0A1410;
+$bg-soft: #0F1F18;
+$surface: #152A22;
+$phosphor: #7CFFB2;
+$phosphor-dim: #3FA875;
+$accent: #FFD86B;
+$success: #5CFFB2;
+$warning: #FFB347;
+$danger: #FF6B6B;
+$muted: #5A6F66;
+$ink: #E6FFE9;
+
+Screen {
+    background: $bg;
+    color: $ink;
+}
+
+Header {
+    background: $bg-soft;
+    color: $phosphor;
+    text-style: bold;
+}
+
+Footer {
+    background: $bg-soft;
+    color: $phosphor-dim;
+}
+
+#header-bar {
+    height: 3;
+    background: $bg-soft;
+    padding: 1 2;
+    border-bottom: solid $phosphor-dim;
+    color: $phosphor;
+}
+
+#main {
+    layout: vertical;
+    padding: 1 2;
+}
+
+.section-title {
+    color: $phosphor-dim;
+    text-style: bold;
+    padding-bottom: 1;
+}
+
+.hand-row {
+    height: auto;
+    margin-bottom: 1;
+}
+
+.bankroll {
+    color: $accent;
+    text-style: bold;
+}
+
+.outcome-win {
+    color: $success;
+    text-style: bold;
+}
+
+.outcome-loss {
+    color: $danger;
+    text-style: bold;
+}
+
+.outcome-push {
+    color: $warning;
+    text-style: bold;
+}
+
+.outcome-blackjack {
+    color: $success;
+    text-style: bold reverse;
+}
+
+#actions {
+    height: auto;
+    padding-top: 1;
+    color: $phosphor;
+}
+
+Input {
+    background: $bg-soft;
+    color: $ink;
+    border: round $phosphor-dim;
+}
+
+Input:focus {
+    border: round $phosphor;
+}
+
+.help {
+    color: $muted;
+    padding-top: 1;
+}
