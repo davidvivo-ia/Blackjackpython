@@ -2,7 +2,8 @@
 
 > *Black Jack* (Ahl, 1978) reinterpretado como software de 2026.
 > TUI con [Textual](https://textual.textualize.io), dominio puro,
-> partidas reproducibles con seed, paleta de fósforo verde.
+> partidas reproducibles con seed, paleta casino-green / oro y
+> modo entrenamiento de basic strategy.
 
 ```text
                     BLACK JACK
@@ -41,18 +42,30 @@ Hand 2  ·  bankroll 1025  ·  bet 25
 
 - **Dominio inmutable** y puro: `dataclass(frozen=True, slots=True)`,
   cero IO, 100% testeable.
-- **Reglas clásicas** del listado original:
-  - 1 baraja de 52 cartas, *reshuffle* automático con descarte.
-  - Apuestas 1..500, bankroll inicial 1000.
-  - Acciones `Hit`, `Stand`, `Double down`, `Split`, `Insurance`.
-  - Dealer planta en 17+ (S17, incluido soft 17).
+- **Reglas configurables**:
+  - 1 a 8 barajas en el shoe (`--decks N`), 75% de penetración en
+    multi-deck.
+  - Dealer S17 por defecto, H17 disponible (`--h17`).
+  - Acciones `Hit`, `Stand`, `Double`, `Split`, **`Surrender`**, `Insurance`.
   - Pago de blackjack natural 3:2.
-- **TUI** Textual con paleta phosphor green, atajos de teclado y
-  modo `--ascii` para terminales legacy.
+- **TUI** Textual con cartas grandes (pip patterns clásicos, J/Q/K
+  con piezas de ajedrez, As con explosión), banner de outcome,
+  botones de acción clicables, modal de historial y de info.
+- **Cuatro temas visuales** (`--theme premiere|phosphor|midnight|ruby`).
 - **Modo `--demo --seed 42`**: partida determinista bit a bit,
   útil para tests E2E y para grabar.
-- **Persistencia XDG**: el bankroll y las estadísticas se guardan en
-  `${XDG_DATA_HOME:-~/.local/share}/blackjack21/session.json`.
+- **Modo `drill`**: entrena basic strategy con quizzes aleatorios y
+  un breakdown de errores al final.
+- **Tip durante el juego**: pulsa `T` para que la TUI te diga la
+  jugada de basic strategy con una explicación de una línea
+  (`TIP STAND — hard 16 vs dealer 6`).
+- **Perfiles + achievements + hall of fame**: bankroll y stats
+  persisten por perfil (`--profile NAME`); 7 logros locales
+  (first blackjack, hot hand, phoenix, whale, marathon, big pot,
+  high roller). `blackjack21 scores` te lo enseña todo.
+- **Persistencia XDG**: bankroll, stats y logros en
+  `${XDG_DATA_HOME:-~/.local/share}/blackjack21/session.json`
+  (o `profiles/<name>.json` para perfiles nombrados).
 
 ## Instalación
 
@@ -63,18 +76,51 @@ uv sync
 ## Uso
 
 ```bash
-# Jugar (TUI Textual)
+# Jugar (TUI Textual, tema premiere por defecto)
 uv run blackjack21 play
+
+# Otras estéticas
+uv run blackjack21 play --theme phosphor    # CRT verde
+uv run blackjack21 play --theme midnight    # Vegas azul
+uv run blackjack21 play --theme ruby --h17  # rojo + dealer H17
+
+# Reglas casino reales
+uv run blackjack21 play --decks 6 --h17
+
+# Perfiles
+uv run blackjack21 play --profile alice
+uv run blackjack21 scores --profile alice
+uv run blackjack21 reset --profile alice
+
+# Modo entrenamiento de basic strategy
+uv run blackjack21 drill --topic hard --rounds 20 --seed 7
+uv run blackjack21 drill --topic pairs
+uv run blackjack21 drill --topic surrender
 
 # Partida determinista (sin entrada de usuario)
 uv run blackjack21 play --demo --seed 42
 
-# Reiniciar bankroll y estadísticas
-uv run blackjack21 reset
-
 # Diagnóstico de terminal
 uv run blackjack21 doctor
 ```
+
+### Atajos de teclado (TUI)
+
+| Tecla | Acción |
+| --- | --- |
+| `H` | Hit |
+| `S` | Stand |
+| `D` | Double down |
+| `/` | Split |
+| `U` | Surrender (si el variante lo permite) |
+| `I` | Decline insurance |
+| `Y` | Take full insurance |
+| `N` | Next hand |
+| `T` | Tip — basic strategy para la mano actual |
+| `,` | Modal de historial (últimas manos) |
+| `.` | Modal de info de sesión y reglas |
+| `?` | Ayuda en la barra de mensajes |
+| `Q` | Salir guardando |
 
 ### Windows: doble clic y listo
 
@@ -88,16 +134,12 @@ A partir de ahí:
 
 - **Doble clic sobre `blackjack.py`** → la primera vez instala las
   dependencias en tu usuario (`pip install --user typer rich textual
-  pydantic structlog`) y arranca la TUI. Las siguientes veces
-  arrancan al instante.
+  pydantic structlog`) y arranca la TUI. Si la primera ejecución no
+  ve las dependencias recién instaladas, el launcher se reinicia
+  automáticamente.
 - Si prefieres pasar argumentos (modo demo, doctor, etc.) sin
   abrir terminal, crea un acceso directo con `python blackjack.py
   play --demo --seed 42` como destino.
-
-> Si tras el doble clic la ventana se cierra sola, abre `cmd.exe` y
-> lanza `python blackjack.py` desde la carpeta del repo: verás el
-> error completo y el script hace `input("Pulsa Enter…")` antes de
-> salir si algo falla.
 
 > **Nota sobre terminales**: Textual rinde bien en *Windows Terminal*
 > y PowerShell modernos. El `cmd.exe` clásico y algunas fuentes
@@ -108,18 +150,6 @@ A partir de ahí:
 > python blackjack.py play --ascii
 > ```
 
-### Atajos de teclado (TUI)
-
-| Tecla | Acción |
-| --- | --- |
-| `H` | Hit |
-| `S` | Stand |
-| `D` | Double down |
-| `/` | Split |
-| `I` | Insurance (sólo si el dealer muestra As) |
-| `?` | Ayuda |
-| `Q` | Salir guardando |
-
 ## Desarrollo
 
 ```bash
@@ -127,7 +157,7 @@ uv sync --dev
 uv run ruff format --check .
 uv run ruff check .
 uv run mypy --strict src
-uv run pytest --cov=src --cov-report=term-missing
+uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=90
 ```
 
 ## Procedencia
