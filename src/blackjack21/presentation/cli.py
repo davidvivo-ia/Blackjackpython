@@ -95,6 +95,13 @@ def play(
             help="Disable late surrender (the BASIC original had none).",
         ),
     ] = False,
+    theme: Annotated[
+        str,
+        typer.Option(
+            "--theme",
+            help="Visual theme: premiere (default), phosphor, midnight, ruby.",
+        ),
+    ] = "premiere",
 ) -> None:
     """Play blackjack: interactive TUI by default, ``--demo`` for headless."""
     if demo:
@@ -106,7 +113,9 @@ def play(
         dealer_hits_soft_17=h17,
         allow_surrender=not no_surrender,
     )
-    BlackjackApp(seed=seed, ascii_only=ascii_only, rules=rules).run()
+    BlackjackApp(
+        seed=seed, ascii_only=ascii_only, rules=rules, theme_name=theme
+    ).run()
 
 
 @app.command()

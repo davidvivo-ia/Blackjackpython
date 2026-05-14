@@ -1,25 +1,9 @@
 /*
- * blackjack21 — Premiere Blackjack TUI skin.
- * Casino-green felt + gold accents, inspired by the Stitch mock.
+ * blackjack21 — TUI skin. Palette variables ($bg, $accent, ...)
+ * are injected by Python (presentation.theme.tcss_variable_block)
+ * so the same rules work for the four themes shipped in this build:
+ *   premiere, phosphor, midnight, ruby.
  */
-
-$bg: #0A2E1A;
-$bg-soft: #0F3D24;
-$surface: #14492C;
-$felt-edge: #073A1F;
-$phosphor: #95D5A7;
-$phosphor-dim: #0A4D2B;
-$accent: #D4AF37;
-$accent-dim: #A88729;
-$success: #95D5A7;
-$warning: #E9C349;
-$danger: #FF8A80;
-$muted: #7A8C82;
-$ink: #E5E2E1;
-$chip-red: #E53935;
-$chip-green: #95D5A7;
-$chip-black: #2A2A2A;
-$chip-purple: #B19CD9;
 
 Screen {
     background: $bg;

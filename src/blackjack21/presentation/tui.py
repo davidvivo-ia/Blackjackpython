@@ -58,7 +58,12 @@ from blackjack21.infrastructure.persistence import JsonSessionStore
 from blackjack21.infrastructure.rng import SystemShuffler
 from blackjack21.presentation.banner import outcome_banner
 from blackjack21.presentation.render import render_hand
-from blackjack21.presentation.theme import build_theme
+from blackjack21.presentation.theme import (
+    DEFAULT_THEME,
+    THEMES,
+    build_theme,
+    tcss_variable_block,
+)
 
 CHIP_DENOMINATIONS: tuple[int, ...] = (5, 25, 100, 500)
 
@@ -123,13 +128,22 @@ def _hand_text(hand: Hand) -> str:
     return " ".join(str(c) for c in hand.cards)
 
 
-def load_css() -> str:
-    """Read the bundled CSS file."""
+def _read_base_css() -> str:
+    """Read the static portion of the TCSS (without variable declarations)."""
     return (
         resources.files("blackjack21.assets")
         .joinpath("blackjack.tcss")
         .read_text(encoding="utf-8")
     )
+
+
+def load_css(theme_name: str = DEFAULT_THEME) -> str:
+    """Return the full TCSS for ``theme_name``.
+
+    Prepends a per-theme ``$var: #HEX;`` block in front of the rule set
+    so the same rule body works across the four built-in palettes.
+    """
+    return tcss_variable_block(theme_name) + _read_base_css()
 
 
 class HandPanel(Static):
@@ -260,9 +274,11 @@ class InfoScreen(ModalScreen[None]):
 class BlackjackApp(App[int]):
     """Main Textual application."""
 
+    # CSS is rebuilt per instance in ``__init__`` so the chosen
+    # palette injects its $vars in front of the static rules.
     CSS = load_css()
     TITLE = "♠ ♥  PREMIERE  BLACKJACK  ♦ ♣"
-    SUB_TITLE = "high-stakes single-deck table"
+    SUB_TITLE = "high-stakes table"
 
     BINDINGS: ClassVar[list[Binding | tuple[str, str] | tuple[str, str, str]]] = [
         Binding("h", "act('hit')", "Hit", show=True),
@@ -293,12 +309,21 @@ class BlackjackApp(App[int]):
         store: JsonSessionStore | None = None,
         ascii_only: bool = False,
         rules: GameRules | None = None,
+        theme_name: str = DEFAULT_THEME,
     ) -> None:
+        if theme_name not in THEMES:
+            theme_name = DEFAULT_THEME
+        # Rebuild the CSS for the chosen theme BEFORE super().__init__()
+        # so Textual loads the right $var block. App.CSS is read at
+        # construction time, so mutating the class attribute here is
+        # the documented way to swap palettes per instance.
+        type(self).CSS = load_css(theme_name)
         super().__init__()
         # Push the semantic palette onto Rich's Console so theme names
         # like "accent" / "card-paper" resolve inside markup. Without
         # this, MissingStyle is raised at first render.
-        self.console.push_theme(build_theme())
+        self.console.push_theme(build_theme(theme_name))
+        self._theme_name = theme_name
         self._seed = seed
         self._store = store or JsonSessionStore()
         self._shuffler = SystemShuffler(seed=seed)
