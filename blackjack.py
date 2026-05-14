@@ -28,6 +28,8 @@ Uso desde linea de comandos (opcional)::
 from __future__ import annotations
 
 import importlib
+import os
+import site
 import subprocess
 import sys
 from pathlib import Path
@@ -52,8 +54,28 @@ def _missing_packages() -> list[str]:
     return missing
 
 
+def _ensure_user_site_on_path() -> None:
+    """Anade el user site-packages a sys.path si no esta ya.
+
+    `pip install --user` instala alli, pero un proceso Python iniciado
+    antes de la instalacion no siempre lo tiene resuelto (Windows en
+    particular), asi que los imports siguen fallando tras instalar. Lo
+    metemos a mano por si acaso.
+    """
+    user_site = site.getusersitepackages()
+    if user_site and Path(user_site).is_dir() and user_site not in sys.path:
+        sys.path.insert(0, user_site)
+
+
 def _bootstrap_dependencies() -> None:
-    """Instala las dependencias que falten en el Python actual."""
+    """Instala las dependencias que falten en el Python actual.
+
+    Si tras la instalacion siguen sin ser visibles, relanzamos el
+    proceso (os.execv) para que Python recompute sys.path desde cero.
+    Esto cubre el caso clasico de Windows donde `pip install --user`
+    deja los paquetes en %APPDATA%\\Python pero el proceso vivo no
+    los ve hasta reiniciar.
+    """
     missing = _missing_packages()
     if not missing:
         return
@@ -67,6 +89,14 @@ def _bootstrap_dependencies() -> None:
         print(f"  {sys.executable} -m pip install {' '.join(missing)}")
         raise
     importlib.invalidate_caches()
+    _ensure_user_site_on_path()
+
+    if not _missing_packages():
+        return
+    print("Reiniciando para cargar las nuevas dependencias...")
+    # execv reemplaza el proceso actual: el nuevo Python recomputa
+    # sys.path desde cero y ya ve los paquetes recien instalados.
+    os.execv(sys.executable, [sys.executable, *sys.argv])
 
 
 def _pause_on_exit() -> None:
