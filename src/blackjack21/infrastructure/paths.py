@@ -26,6 +26,13 @@ def data_dir() -> Path:
     return base / APP_NAME
 
 
-def session_path() -> Path:
-    """Path to the JSON file holding the saved session."""
-    return data_dir() / "session.json"
+def session_path(profile: str = "default") -> Path:
+    """Path to the JSON file holding ``profile``'s saved session.
+
+    The ``default`` profile keeps the legacy ``session.json`` location
+    so users upgrading from v1.0 don't lose their bankroll. Named
+    profiles get a dedicated file under ``profiles/<name>.json``.
+    """
+    if profile == "default":
+        return data_dir() / "session.json"
+    return data_dir() / "profiles" / f"{profile}.json"

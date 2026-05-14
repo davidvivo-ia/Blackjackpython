@@ -38,6 +38,12 @@ from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Header, Static
 
+from blackjack21.application.achievements import (
+    by_id as achievement_by_id,
+)
+from blackjack21.application.achievements import (
+    evaluate as evaluate_achievements,
+)
 from blackjack21.application.session import SavedSession, SessionStats
 from blackjack21.application.strategy import explain, recommend
 from blackjack21.application.use_cases import (
@@ -339,6 +345,12 @@ class BlackjackApp(App[int]):
         self._surrenders = 0
         self._streak = 0  # + winning streak, - losing streak
         self._history: list[HandRecord] = []
+        # Achievement-tracking accumulators. Restored from disk in on_mount.
+        self._longest_win_streak = 0
+        self._max_bankroll_reached = 0
+        self._lowest_bankroll: int | None = None
+        self._times_bet_max = 0
+        self._unlocked_achievements: set[str] = set()
 
     # ---- composition --------------------------------------------------
 
@@ -406,7 +418,17 @@ class BlackjackApp(App[int]):
     def on_mount(self) -> None:
         saved = self._load_saved_session()
         bankroll = saved.bankroll if saved else self._rules.initial_bankroll
-        self._biggest_pot = saved.stats.biggest_pot if saved else 0
+        if saved is not None:
+            self._biggest_pot = saved.stats.biggest_pot
+            self._longest_win_streak = saved.stats.longest_win_streak
+            self._max_bankroll_reached = saved.stats.max_bankroll_reached
+            self._lowest_bankroll = saved.stats.lowest_bankroll
+            self._times_bet_max = saved.stats.times_bet_max
+            self._unlocked_achievements = set(saved.unlocked_achievements)
+        # Seed the max-bankroll watermark from the starting bankroll so
+        # the high_roller predicate has a sensible baseline on a brand-
+        # new profile.
+        self._max_bankroll_reached = max(self._max_bankroll_reached, bankroll)
         self.state = start_session(
             rules=self._rules, shuffler=self._shuffler, bankroll=bankroll
         )
@@ -478,6 +500,8 @@ class BlackjackApp(App[int]):
             self.last_message = str(exc)
             self._refresh()
             return
+        if amount >= self._rules.max_bet:
+            self._times_bet_max += 1
         self.last_message = ""
         self.pending_bet = 0
         self.state = new_state
@@ -597,7 +621,49 @@ class BlackjackApp(App[int]):
             self.state = new_state
             self._update_counters_and_history()
             self._update_biggest_pot()
+            self._update_bankroll_watermarks()
+            self._check_achievements()
             self._persist()
+
+    def _update_bankroll_watermarks(self) -> None:
+        assert self.state is not None
+        self._max_bankroll_reached = max(
+            self._max_bankroll_reached, self.state.bankroll
+        )
+        if self._lowest_bankroll is None:
+            self._lowest_bankroll = self.state.bankroll
+        else:
+            self._lowest_bankroll = min(self._lowest_bankroll, self.state.bankroll)
+        self._longest_win_streak = max(self._longest_win_streak, self._streak)
+
+    def _check_achievements(self) -> None:
+        """Evaluate predicates against current totals; toast any new unlocks."""
+        assert self.state is not None
+        new_ids = evaluate_achievements(
+            self._current_stats(),
+            self.state.bankroll,
+            self._unlocked_achievements,
+        )
+        if not new_ids:
+            return
+        self._unlocked_achievements.update(new_ids)
+        resolved = [achievement_by_id(i) for i in new_ids]
+        names = sorted(a.name for a in resolved if a is not None)
+        self.last_message = (
+            f"[bold accent]★ ACHIEVEMENT UNLOCKED ★[/] {', '.join(names)}"
+        )
+
+    def _current_stats(self) -> SessionStats:
+        assert self.state is not None
+        return SessionStats(
+            hands_played=self.state.hands_played,
+            blackjacks=self.state.blackjacks,
+            biggest_pot=self._biggest_pot,
+            longest_win_streak=self._longest_win_streak,
+            max_bankroll_reached=self._max_bankroll_reached,
+            lowest_bankroll=self._lowest_bankroll,
+            times_bet_max=self._times_bet_max,
+        )
 
     def _update_counters_and_history(self) -> None:
         assert self.state is not None
@@ -654,11 +720,8 @@ class BlackjackApp(App[int]):
             self._store.save(
                 SavedSession(
                     bankroll=max(0, self.state.bankroll),
-                    stats=SessionStats(
-                        hands_played=self.state.hands_played,
-                        blackjacks=self.state.blackjacks,
-                        biggest_pot=self._biggest_pot,
-                    ),
+                    stats=self._current_stats(),
+                    unlocked_achievements=sorted(self._unlocked_achievements),
                 )
             )
 

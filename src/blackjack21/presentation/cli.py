@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from blackjack21 import __version__
+from blackjack21.application.achievements import ACHIEVEMENTS, by_id
 from blackjack21.domain.rules import GameRules
 from blackjack21.infrastructure.paths import session_path
 from blackjack21.infrastructure.persistence import JsonSessionStore
@@ -102,6 +103,13 @@ def play(
             help="Visual theme: premiere (default), phosphor, midnight, ruby.",
         ),
     ] = "premiere",
+    profile: Annotated[
+        str,
+        typer.Option(
+            "--profile",
+            help="Session profile name. 'default' uses the legacy session.json.",
+        ),
+    ] = "default",
 ) -> None:
     """Play blackjack: interactive TUI by default, ``--demo`` for headless."""
     if demo:
@@ -114,16 +122,92 @@ def play(
         allow_surrender=not no_surrender,
     )
     BlackjackApp(
-        seed=seed, ascii_only=ascii_only, rules=rules, theme_name=theme
+        seed=seed,
+        store=JsonSessionStore(session_path(profile)),
+        ascii_only=ascii_only,
+        rules=rules,
+        theme_name=theme,
     ).run()
 
 
 @app.command()
-def reset() -> None:
-    """Delete the saved bankroll and stats."""
-    store = JsonSessionStore()
+def reset(
+    profile: Annotated[
+        str,
+        typer.Option("--profile", help="Profile whose session.json to delete."),
+    ] = "default",
+) -> None:
+    """Delete the saved bankroll and stats for ``profile``."""
+    store = JsonSessionStore(session_path(profile))
     store.reset()
-    typer.echo("Session reset.")
+    typer.echo(f"Session reset for profile '{profile}'.")
+
+
+@app.command()
+def scores(
+    profile: Annotated[
+        str,
+        typer.Option("--profile", help="Profile to read stats from."),
+    ] = "default",
+) -> None:
+    """Show the current profile's lifetime stats and unlocked achievements."""
+    console = Console(theme=build_theme())
+    store = JsonSessionStore(session_path(profile))
+    try:
+        saved = store.load()
+    except Exception as exc:
+        console.print(f"[danger]Could not load profile '{profile}': {exc}[/]")
+        raise typer.Exit(code=1) from exc
+    if saved is None:
+        console.print(f"[muted]No session yet for profile '{profile}'.[/]")
+        return
+    stats_table = Table(
+        title=f"[bold accent]HALL OF FAME — {profile}[/]",
+        border_style="accent",
+        show_header=False,
+        expand=False,
+    )
+    stats_table.add_column("key", style="#A88729")
+    stats_table.add_column("value", style="#E5E2E1", justify="right")
+    stats_table.add_row("bankroll", f"${saved.bankroll:,}")
+    stats_table.add_row("hands played", str(saved.stats.hands_played))
+    stats_table.add_row("blackjacks", str(saved.stats.blackjacks))
+    stats_table.add_row("biggest pot", f"${saved.stats.biggest_pot:,}")
+    stats_table.add_row(
+        "longest win streak", str(saved.stats.longest_win_streak)
+    )
+    stats_table.add_row(
+        "max bankroll reached", f"${saved.stats.max_bankroll_reached:,}"
+    )
+    stats_table.add_row(
+        "lowest bankroll",
+        f"${saved.stats.lowest_bankroll:,}"
+        if saved.stats.lowest_bankroll is not None
+        else "—",
+    )
+    stats_table.add_row("times bet max", str(saved.stats.times_bet_max))
+    console.print(stats_table)
+
+    ach_table = Table(
+        title="[bold accent]ACHIEVEMENTS[/]",
+        border_style="accent",
+        expand=False,
+    )
+    ach_table.add_column("✓", width=3)
+    ach_table.add_column("name", style="#E5E2E1")
+    ach_table.add_column("description", style="#A88729")
+    unlocked = set(saved.unlocked_achievements)
+    for ach in ACHIEVEMENTS:
+        mark = "[bold accent]★[/]" if ach.id in unlocked else "[muted]·[/]"
+        ach_table.add_row(mark, ach.name, ach.description)
+    # Surface any persisted ids that the build no longer recognises so
+    # they don't silently disappear from the user's record.
+    for stale in sorted(unlocked - {a.id for a in ACHIEVEMENTS}):
+        if by_id(stale) is None:
+            ach_table.add_row(
+                "[bold danger]?[/]", stale, "[muted]unknown achievement id[/]"
+            )
+    console.print(ach_table)
 
 
 @app.command()
