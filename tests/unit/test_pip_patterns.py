@@ -56,25 +56,33 @@ def test_number_cards_paint_expected_pip_count(
     )
 
 
-def test_ace_renders_a_single_centre_pip() -> None:
+def test_ace_renders_5_pip_splash() -> None:
+    """The Ace explodes into a 5-pip plus-sign so it dominates the centre."""
     out = _render(Card(Rank.ACE, Suit.SPADES))
     pips = _count_suits(out, "♠") - _CORNER_SUITS
-    assert pips == 1
+    assert pips == 5
+
+
+_FACE_PIECES = {
+    Rank.JACK: "♞",
+    Rank.QUEEN: "♛",
+    Rank.KING: "♚",
+}
 
 
 @pytest.mark.parametrize(
     "rank", [Rank.JACK, Rank.QUEEN, Rank.KING]
 )
-def test_face_cards_show_rank_letter_and_two_suit_decorations(
+def test_face_cards_show_chess_piece_decoration_and_letter(
     rank: Rank,
 ) -> None:
     out = _render(Card(rank, Suit.SPADES))
-    # Two decorative suits flank the bold rank letter.
+    # No extra suits in the centre (only the two corner indices).
     pips = _count_suits(out, "♠") - _CORNER_SUITS
-    assert pips == 2
-    # Strip ANSI escapes before checking the letter so colour codes
-    # don't masquerade as the rank.
+    assert pips == 0
     clean = re.sub(r"\x1b\[[0-9;]*m", "", out)
+    # The chess piece appears twice (above and below the rank).
+    assert clean.count(_FACE_PIECES[rank]) == 2
     assert rank.value in clean
 
 

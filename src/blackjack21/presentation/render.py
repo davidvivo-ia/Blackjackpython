@@ -51,6 +51,21 @@ _CARD_BORDER_DIM = "accent-dim"
 _PIP_COLS: tuple[int, int, int] = (1, 3, 5)
 _PIP_ROW_BASE = 2  # inner row offset where the pip area starts
 
+# Face-card flair: Unicode chess pieces stand in for the classic
+# court-card portrait. Each face card is framed by its piece glyph
+# above and below the bold rank letter.
+_FACE_GLYPH: dict[Rank, str] = {
+    Rank.JACK: "♞",
+    Rank.QUEEN: "♛",
+    Rank.KING: "♚",
+}
+
+# Ace "explosion" — a 5-pip plus-sign that makes the Ace impossible to
+# miss compared to other cards.
+_ACE_PATTERN: frozenset[tuple[int, int]] = frozenset(
+    {(1, 0), (0, 1), (1, 1), (2, 1), (1, 2)}
+)
+
 _NUM_PIPS: dict[Rank, frozenset[tuple[int, int]]] = {
     Rank.TWO:   frozenset({(1, 0), (1, 2)}),
     Rank.THREE: frozenset({(1, 0), (1, 1), (1, 2)}),
@@ -102,16 +117,25 @@ def _build_face_grid(card: Card, *, ascii_only: bool) -> list[list[str]]:
     for i, ch in enumerate(rank_text):
         grid[_INNER_HEIGHT - 1][rank_start + i] = ch
 
-    # Centre decoration: pip pattern, face decoration or big ace pip.
+    # Centre decoration: pip pattern, face decoration or big ace splash.
     centre_col = _PIP_COLS[1]
     if card.rank in (Rank.JACK, Rank.QUEEN, Rank.KING):
-        grid[_PIP_ROW_BASE][centre_col] = corner_suit
+        # Chess piece above, bold rank letter in the middle, chess
+        # piece below — the closest a monospace grid gets to a court
+        # card portrait.
+        piece = _FACE_GLYPH[card.rank]
+        if not ascii_only:
+            grid[_PIP_ROW_BASE][centre_col] = piece
+            grid[_PIP_ROW_BASE + 2][centre_col] = piece
+        else:
+            grid[_PIP_ROW_BASE][centre_col] = corner_suit
+            grid[_PIP_ROW_BASE + 2][centre_col] = corner_suit
         grid[_PIP_ROW_BASE + 1][centre_col] = card.rank.value
-        grid[_PIP_ROW_BASE + 2][centre_col] = corner_suit
     elif card.rank is Rank.ACE:
-        # Single oversized centre pip — make it pop by also drawing
-        # the suit at the cells directly above/below for a "fan".
-        grid[_PIP_ROW_BASE + 1][centre_col] = corner_suit
+        # 5-pip splash centred in the pip area: a "plus" of suits that
+        # makes the Ace impossible to confuse with any other card.
+        for col_idx, row_idx in _ACE_PATTERN:
+            grid[_PIP_ROW_BASE + row_idx][_PIP_COLS[col_idx]] = corner_suit
     elif card.rank in _NUM_PIPS:
         for col_idx, row_idx in _NUM_PIPS[card.rank]:
             grid[_PIP_ROW_BASE + row_idx][_PIP_COLS[col_idx]] = corner_suit

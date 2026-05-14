@@ -56,6 +56,34 @@ async def test_clear_bet_resets_pending(tmp_path) -> None:
         assert app.state.phase is Phase.AWAITING_BET
 
 
+@pytest.mark.asyncio
+async def test_action_button_fires_hit(tmp_path) -> None:
+    """Clicking the HIT button on PLAYER_TURN must deal a card."""
+    app = BlackjackApp(seed=42, store=JsonSessionStore(tmp_path / "s.json"))
+    async with app.run_test(size=_BIG_SCREEN) as pilot:
+        await pilot.click("#chip-25")
+        await pilot.click("#deal-btn")
+        if app.state is not None and app.state.phase is Phase.PLAYER_TURN:
+            cards_before = len(app.state.active_hand.cards)
+            await pilot.click("#action-hit")
+            assert (
+                len(app.state.active_hand.cards) > cards_before
+                or app.state.phase is not Phase.PLAYER_TURN
+            )
+
+
+@pytest.mark.asyncio
+async def test_history_modal_opens_and_closes(tmp_path) -> None:
+    """Pressing comma opens the History modal; ESC closes it."""
+    app = BlackjackApp(seed=42, store=JsonSessionStore(tmp_path / "s.json"))
+    async with app.run_test(size=_BIG_SCREEN) as pilot:
+        assert len(app.screen_stack) == 1
+        await pilot.press("comma")
+        assert len(app.screen_stack) == 2
+        await pilot.press("escape")
+        assert len(app.screen_stack) == 1
+
+
 def test_card_render_does_not_truncate() -> None:
     """Regression: cards used to print '...' because the rank overflowed."""
     # Tens render as "10" not "T" — the visible token, not the enum value.
