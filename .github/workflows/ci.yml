@@ -37,7 +37,7 @@ jobs:
         run: uv run mypy --strict src
 
       - name: pytest with coverage
-        run: uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=80
+        run: uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=90
 
       - name: Demo (deterministic)
         run: uv run blackjack21 play --demo --seed 42

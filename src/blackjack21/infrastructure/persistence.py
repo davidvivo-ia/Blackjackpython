@@ -33,7 +33,12 @@ class JsonSessionStore:
         try:
             raw = self._path.read_text(encoding="utf-8")
             return SavedSession.model_validate_json(raw)
-        except (OSError, json.JSONDecodeError, ValidationError) as exc:
+        except (
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            ValidationError,
+        ) as exc:
             raise SessionCorruptError(
                 f"Cannot decode session file at {self._path}: {exc}"
             ) from exc
