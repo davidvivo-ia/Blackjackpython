@@ -48,6 +48,7 @@ from blackjack21.application.achievements import (
 from blackjack21.application.achievements import (
     evaluate as evaluate_achievements,
 )
+from blackjack21.application.counter import compute as compute_count
 from blackjack21.application.odds import prob_bust_on_hit
 from blackjack21.application.session import SavedSession, SessionStats
 from blackjack21.application.strategy import explain, recommend
@@ -348,6 +349,7 @@ class BlackjackApp(App[int]):
         ascii_only: bool = False,
         rules: GameRules | None = None,
         theme_name: str = DEFAULT_THEME,
+        show_counter: bool = False,
     ) -> None:
         if theme_name not in THEMES:
             theme_name = DEFAULT_THEME
@@ -367,6 +369,7 @@ class BlackjackApp(App[int]):
         self._shuffler = SystemShuffler(seed=seed)
         self._ascii_only = ascii_only
         self._rules = rules or DEFAULT_RULES
+        self._show_counter = show_counter
         self._biggest_pot = 0
         # Live session counters — incremented on every settlement.
         self._wins = 0
@@ -398,6 +401,8 @@ class BlackjackApp(App[int]):
                 yield Static("HAND VALUE\n[bold accent]—[/]", id="hand-value")
             with Horizontal(id="counters-row"):
                 yield Static("", id="counters")
+            with Horizontal(id="hilo-row"):
+                yield Static("", id="hilo")
             yield Static(
                 Rule(
                     title="[bold accent]♠  DEALER  ♥[/]",
@@ -776,10 +781,32 @@ class BlackjackApp(App[int]):
             return
         self._refresh_stats_row()
         self._refresh_counters_row()
+        self._refresh_hilo_row()
         self._refresh_hands()
         self._refresh_status()
         self._refresh_button_rows()
         self.query_one("#message", Static).update(self.last_message)
+
+    def _refresh_hilo_row(self) -> None:
+        assert self.state is not None
+        widget = self.query_one("#hilo", Static)
+        if not self._show_counter:
+            widget.display = False
+            return
+        widget.display = True
+        c = compute_count(self.state)
+        if c.true_count > 1:
+            tc_style = "bold accent"
+        elif c.true_count < -1:
+            tc_style = "bold danger"
+        else:
+            tc_style = "muted"
+        widget.update(
+            f"[bold accent-dim]HI-LO[/]  "
+            f"RC [bold]{c.running:+d}[/]   "
+            f"TC [{tc_style}]{c.true_count:+.1f}[/]   "
+            f"decks rem [bold]{c.decks_remaining:.1f}[/]"
+        )
 
     def _refresh_stats_row(self) -> None:
         assert self.state is not None

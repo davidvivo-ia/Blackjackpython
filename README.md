@@ -87,6 +87,9 @@ uv run blackjack21 play --theme ruby --h17  # rojo + dealer H17
 # Reglas casino reales
 uv run blackjack21 play --decks 6 --h17
 
+# Modo pedagógico: contador Hi-Lo en pantalla (running + true count)
+uv run blackjack21 play --decks 6 --counter
+
 # Perfiles
 uv run blackjack21 play --profile alice
 uv run blackjack21 scores --profile alice

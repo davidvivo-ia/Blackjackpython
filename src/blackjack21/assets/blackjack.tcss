@@ -56,6 +56,18 @@ Footer {
     content-align: center middle;
 }
 
+#hilo-row {
+    height: 1;
+    margin-bottom: 1;
+    align: center middle;
+}
+
+#hilo {
+    width: 100%;
+    color: $accent-dim;
+    content-align: center middle;
+}
+
 .section-title {
     color: $accent-dim;
     text-style: bold;

@@ -120,6 +120,13 @@ def play(
             help="Session profile name. 'default' uses the legacy session.json.",
         ),
     ] = "default",
+    counter: Annotated[
+        bool,
+        typer.Option(
+            "--counter",
+            help="Show a Hi-Lo running count and true count overlay (pedagogy).",
+        ),
+    ] = False,
 ) -> None:
     """Play blackjack: interactive TUI by default, ``--demo`` for headless."""
     if demo:
@@ -137,6 +144,7 @@ def play(
         ascii_only=ascii_only,
         rules=rules,
         theme_name=theme,
+        show_counter=counter,
     ).run()
 
 
