@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import random
 import sys
+from collections import Counter
 from typing import Annotated
 
 import typer
@@ -11,6 +13,14 @@ from rich.table import Table
 
 from blackjack21 import __version__
 from blackjack21.application.achievements import ACHIEVEMENTS, by_id
+from blackjack21.application.drill import (
+    DEFAULT_ROUNDS,
+    Topic,
+    grade,
+    parse_action,
+    random_situation,
+    score,
+)
 from blackjack21.domain.rules import GameRules
 from blackjack21.infrastructure.paths import session_path
 from blackjack21.infrastructure.persistence import JsonSessionStore
@@ -208,6 +218,80 @@ def scores(
                 "[bold danger]?[/]", stale, "[muted]unknown achievement id[/]"
             )
     console.print(ach_table)
+
+
+@app.command()
+def drill(
+    topic: Annotated[
+        Topic,
+        typer.Option(
+            "--topic",
+            help="Which chart cells to drill: hard, soft, pairs, surrender, all.",
+            case_sensitive=False,
+        ),
+    ] = Topic.ALL,
+    rounds: Annotated[
+        int,
+        typer.Option(min=1, max=200, help="How many situations to quiz."),
+    ] = DEFAULT_ROUNDS,
+    seed: Annotated[
+        int | None,
+        typer.Option(help="Seed for reproducible drills (omit for random)."),
+    ] = None,
+) -> None:
+    """Train basic strategy: random spots quizzed against the chart.
+
+    Type a single letter for each prompt — H hit, S stand, D double,
+    P split, U surrender. Score and an error breakdown print at the end.
+    """
+    console = Console(theme=build_theme())
+    rng = random.Random(seed)
+    graded = []
+    for i in range(1, rounds + 1):
+        situation = random_situation(topic, rng)
+        prompt = (
+            f"\n[{i}/{rounds}] [bold accent]You[/]: "
+            f"{' '.join(str(c) for c in situation.hand.cards)} "
+            f"(total {situation.hand.value.total}) — "
+            f"[bold accent]Dealer[/]: {situation.upcard}"
+        )
+        console.print(prompt)
+        while True:
+            raw = typer.prompt("Action [H/S/D/P/U]", default="").strip()
+            answer = parse_action(raw)
+            if answer is not None:
+                break
+            console.print("[danger]Invalid. Use H/S/D/P/U.[/]")
+        result = grade(situation, answer)
+        graded.append(result)
+        if result.correct:
+            console.print("[success]✓ correct[/]")
+        else:
+            console.print(
+                f"[danger]✗ wrong. Best move: "
+                f"[bold]{result.expected.value.upper()}[/][/]"
+            )
+    correct, total = score(graded)
+    pct = 100 * correct / total if total else 0
+    console.print(
+        f"\n[bold accent]SCORE[/] {correct}/{total}  ({pct:.1f}%)"
+    )
+    errors = [g for g in graded if not g.correct]
+    if errors:
+        breakdown = Counter(
+            (g.situation.hand.value.total, g.expected.value) for g in errors
+        )
+        err_table = Table(
+            title="[bold danger]MISSES[/]",
+            border_style="danger",
+            expand=False,
+        )
+        err_table.add_column("hand", style="#E5E2E1")
+        err_table.add_column("correct move", style="#A88729")
+        err_table.add_column("count", justify="right")
+        for (hand_total, correct_move), count in breakdown.most_common():
+            err_table.add_row(str(hand_total), correct_move.upper(), str(count))
+        console.print(err_table)
 
 
 @app.command()
