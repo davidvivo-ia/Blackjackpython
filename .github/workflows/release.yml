@@ -1,0 +1,41 @@
+name: Release to PyPI
+
+# Untested in CI — runs only on a real version tag push. To enable:
+#   1. Configure trusted publishing on PyPI for this repo
+#      (pypi.org → project → Settings → Publishing).
+#   2. Push a tag like `v1.1.0`.
+#
+# Until the first successful run, treat this workflow as draft.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # required for trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Sync dependencies (without dev)
+        run: uv sync
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      - name: Publish to PyPI (trusted publisher)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

@@ -1,0 +1,286 @@
+/*
+ * blackjack21 — TUI skin. Palette variables ($bg, $accent, ...)
+ * are injected by Python (presentation.theme.tcss_variable_block)
+ * so the same rules work for the four themes shipped in this build:
+ *   premiere, phosphor, midnight, ruby.
+ */
+
+Screen {
+    background: $bg;
+    color: $ink;
+}
+
+Header {
+    background: $felt-edge;
+    color: $accent;
+    text-style: bold;
+}
+
+Footer {
+    background: $felt-edge;
+    color: $accent-dim;
+}
+
+#main {
+    layout: vertical;
+    padding: 1 2;
+}
+
+#stats-row {
+    height: 5;
+    margin-bottom: 1;
+    align: center middle;
+}
+
+#stats-row Static {
+    width: 1fr;
+    height: 5;
+    padding: 0 1;
+    margin: 0 1;
+    background: $bg-soft;
+    border: round $accent-dim;
+    color: $accent-dim;
+    text-style: bold;
+    content-align: center middle;
+}
+
+#counters-row {
+    height: 1;
+    margin-bottom: 1;
+    align: center middle;
+}
+
+#counters {
+    width: 100%;
+    color: $accent-dim;
+    content-align: center middle;
+}
+
+#hilo-row {
+    height: 1;
+    margin-bottom: 1;
+    align: center middle;
+}
+
+#hilo {
+    width: 100%;
+    color: $accent-dim;
+    content-align: center middle;
+}
+
+.section-title {
+    color: $accent-dim;
+    text-style: bold;
+    padding-bottom: 0;
+}
+
+.hand-row {
+    height: auto;
+    margin-bottom: 1;
+}
+
+#status {
+    height: auto;
+    padding-top: 1;
+    padding-bottom: 1;
+    color: $ink;
+    content-align: center middle;
+}
+
+#chip-row {
+    height: 3;
+    padding-top: 1;
+    align: center middle;
+}
+
+Button.chip {
+    margin: 0 1;
+    min-width: 10;
+    height: 3;
+    background: $bg-soft;
+    color: $accent;
+    border: round $accent-dim;
+    text-style: bold;
+}
+
+Button.chip:hover {
+    background: $surface;
+    border: round $accent;
+}
+
+Button.chip-5 {
+    color: $chip-red;
+    border: round $chip-red;
+}
+
+Button.chip-25 {
+    color: $chip-green;
+    border: round $chip-green;
+}
+
+Button.chip-100 {
+    color: $ink;
+    border: round $ink;
+}
+
+Button.chip-500 {
+    color: $chip-purple;
+    border: round $chip-purple;
+}
+
+#bet-controls {
+    height: 3;
+    padding-top: 1;
+    align: center middle;
+}
+
+Button.bet-btn {
+    margin: 0 1;
+    min-width: 14;
+    height: 3;
+    background: $bg-soft;
+    color: $ink;
+    border: round $accent-dim;
+}
+
+Button.bet-btn-deal {
+    background: $accent 80%;
+    color: $felt-edge;
+    border: round $accent;
+    text-style: bold;
+}
+
+Button.bet-btn-deal:hover {
+    background: $accent;
+    border: round $accent;
+}
+
+Button.bet-btn-deal:disabled {
+    background: $bg-soft;
+    color: $muted;
+    border: round $muted;
+    text-style: none;
+}
+
+Button.bet-btn-clear:hover {
+    background: $surface;
+    border: round $ink;
+}
+
+#actions-row {
+    height: 3;
+    padding-top: 1;
+    align: center middle;
+}
+
+Button.action-btn {
+    margin: 0 1;
+    min-width: 12;
+    height: 3;
+    background: $bg-soft;
+    color: $ink;
+    border: round $accent-dim;
+    text-style: bold;
+}
+
+Button.action-btn:disabled {
+    color: $muted;
+    border: round $muted;
+    text-style: none;
+}
+
+Button.action-hit {
+    color: $success;
+    border: round $success;
+}
+
+Button.action-stand {
+    color: $ink;
+    border: round $ink;
+}
+
+Button.action-double {
+    background: $accent 60%;
+    color: $felt-edge;
+    border: round $accent;
+}
+
+Button.action-double:hover {
+    background: $accent;
+}
+
+Button.action-split {
+    color: $accent;
+    border: round $accent;
+}
+
+Button.action-surrender {
+    color: $danger;
+    border: round $danger;
+}
+
+#insurance-row {
+    height: 3;
+    padding-top: 1;
+    align: center middle;
+}
+
+Button.ins-btn {
+    margin: 0 1;
+    min-width: 16;
+    height: 3;
+    text-style: bold;
+}
+
+Button.ins-yes {
+    background: $accent 80%;
+    color: $felt-edge;
+    border: round $accent;
+}
+
+Button.ins-yes:hover {
+    background: $accent;
+}
+
+Button.ins-no {
+    background: $bg-soft;
+    color: $muted;
+    border: round $muted;
+}
+
+Button.ins-no:hover {
+    border: round $ink;
+    color: $ink;
+}
+
+#modal-container {
+    background: $bg-soft;
+    border: round $accent;
+    padding: 1 2;
+    width: 90%;
+    height: auto;
+    margin: 2 4;
+}
+
+#modal-body {
+    height: auto;
+}
+
+#modal-footer {
+    color: $muted;
+    content-align: center middle;
+    padding-top: 1;
+}
+
+.help {
+    color: $muted;
+    padding-top: 1;
+    content-align: center middle;
+}
+
+#message {
+    height: auto;
+    color: $accent-dim;
+    content-align: center middle;
+    padding-top: 1;
+}
