@@ -54,6 +54,9 @@ class Hand:
     def double(self) -> Hand:
         return replace(self, bet=self.bet * 2, doubled=True, stood=True)
 
+    def surrender(self) -> Hand:
+        return replace(self, surrendered=True, stood=True)
+
     @property
     def value(self) -> HandValue:
         return evaluate(self.cards, from_initial_deal=not self.from_split)

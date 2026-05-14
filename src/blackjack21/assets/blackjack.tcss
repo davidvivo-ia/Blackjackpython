@@ -1,7 +1,6 @@
 /*
  * blackjack21 — Premiere Blackjack TUI skin.
  * Casino-green felt + gold accents, inspired by the Stitch mock.
- * See docs/design.md for the colour rationale.
  */
 
 $bg: #0A2E1A;
@@ -17,6 +16,10 @@ $warning: #E9C349;
 $danger: #FF8A80;
 $muted: #7A8C82;
 $ink: #E5E2E1;
+$chip-red: #E53935;
+$chip-green: #95D5A7;
+$chip-black: #2A2A2A;
+$chip-purple: #B19CD9;
 
 Screen {
     background: $bg;
@@ -57,10 +60,22 @@ Footer {
     content-align: center middle;
 }
 
+#counters-row {
+    height: 1;
+    margin-bottom: 1;
+    align: center middle;
+}
+
+#counters {
+    width: 100%;
+    color: $accent-dim;
+    content-align: center middle;
+}
+
 .section-title {
     color: $accent-dim;
     text-style: bold;
-    padding-bottom: 1;
+    padding-bottom: 0;
 }
 
 .hand-row {
@@ -68,15 +83,12 @@ Footer {
     margin-bottom: 1;
 }
 
-.bankroll {
-    color: $accent;
-    text-style: bold;
-}
-
-#actions {
+#status {
     height: auto;
     padding-top: 1;
+    padding-bottom: 1;
     color: $ink;
+    content-align: center middle;
 }
 
 #chip-row {
@@ -87,7 +99,7 @@ Footer {
 
 Button.chip {
     margin: 0 1;
-    min-width: 8;
+    min-width: 10;
     height: 3;
     background: $bg-soft;
     color: $accent;
@@ -101,13 +113,13 @@ Button.chip:hover {
 }
 
 Button.chip-5 {
-    color: #FF8A80;
-    border: round #FF8A80;
+    color: $chip-red;
+    border: round $chip-red;
 }
 
 Button.chip-25 {
-    color: #95D5A7;
-    border: round #95D5A7;
+    color: $chip-green;
+    border: round $chip-green;
 }
 
 Button.chip-100 {
@@ -116,8 +128,8 @@ Button.chip-100 {
 }
 
 Button.chip-500 {
-    color: #B19CD9;
-    border: round #B19CD9;
+    color: $chip-purple;
+    border: round $chip-purple;
 }
 
 #bet-controls {
@@ -171,5 +183,13 @@ Input:focus {
 
 .help {
     color: $muted;
+    padding-top: 1;
+    content-align: center middle;
+}
+
+#message {
+    height: auto;
+    color: $accent-dim;
+    content-align: center middle;
     padding-top: 1;
 }

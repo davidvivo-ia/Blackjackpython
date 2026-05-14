@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from blackjack21 import __version__
+from blackjack21.domain.rules import GameRules
 from blackjack21.infrastructure.paths import session_path
 from blackjack21.infrastructure.persistence import JsonSessionStore
 from blackjack21.presentation.demo import DEFAULT_HANDS, run_demo
@@ -71,13 +72,41 @@ def play(
             help="Use plain S/H/D/C letters instead of ♠♥♦♣ glyphs (legacy fonts).",
         ),
     ] = False,
+    decks: Annotated[
+        int,
+        typer.Option(
+            min=1,
+            max=8,
+            help="Decks in the shoe (1, 2, 4, 6, 8). Multi-deck triggers"
+            " standard 75% penetration reshuffle.",
+        ),
+    ] = 1,
+    h17: Annotated[
+        bool,
+        typer.Option(
+            "--h17/--s17",
+            help="Dealer hits soft 17 (H17) vs stands on soft 17 (S17, default).",
+        ),
+    ] = False,
+    no_surrender: Annotated[
+        bool,
+        typer.Option(
+            "--no-surrender",
+            help="Disable late surrender (the BASIC original had none).",
+        ),
+    ] = False,
 ) -> None:
     """Play blackjack: interactive TUI by default, ``--demo`` for headless."""
     if demo:
         effective_seed = seed if seed is not None else 42
         run_demo(seed=effective_seed, hands=hands)
         return
-    BlackjackApp(seed=seed, ascii_only=ascii_only).run()
+    rules = GameRules(
+        num_decks=decks,
+        dealer_hits_soft_17=h17,
+        allow_surrender=not no_surrender,
+    )
+    BlackjackApp(seed=seed, ascii_only=ascii_only, rules=rules).run()
 
 
 @app.command()

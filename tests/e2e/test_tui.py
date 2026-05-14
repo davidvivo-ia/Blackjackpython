@@ -14,12 +14,14 @@ from blackjack21.presentation.render import render_card
 from blackjack21.presentation.theme import build_theme
 from blackjack21.presentation.tui import BlackjackApp
 
+_BIG_SCREEN = (120, 60)
+
 
 @pytest.mark.asyncio
 async def test_chip_betting_flow(tmp_path) -> None:
     """Clicking a $25 chip and pressing DEAL must place a 25 bet."""
     app = BlackjackApp(seed=42, store=JsonSessionStore(tmp_path / "s.json"))
-    async with app.run_test() as pilot:
+    async with app.run_test(size=_BIG_SCREEN) as pilot:
         assert app.state is not None
         assert app.state.phase is Phase.AWAITING_BET
         assert app.pending_bet == 0
@@ -44,7 +46,7 @@ async def test_chip_betting_flow(tmp_path) -> None:
 async def test_clear_bet_resets_pending(tmp_path) -> None:
     """CLEAR BET must zero the pending stake without dealing."""
     app = BlackjackApp(seed=42, store=JsonSessionStore(tmp_path / "s.json"))
-    async with app.run_test() as pilot:
+    async with app.run_test(size=_BIG_SCREEN) as pilot:
         await pilot.click("#chip-100")
         await pilot.click("#chip-5")
         assert app.pending_bet == 105
@@ -56,11 +58,13 @@ async def test_clear_bet_resets_pending(tmp_path) -> None:
 
 def test_card_render_does_not_truncate() -> None:
     """Regression: cards used to print '...' because the rank overflowed."""
-    for rank in (Rank.ACE, Rank.TEN, Rank.KING, Rank.TWO):
+    # Tens render as "10" not "T" — the visible token, not the enum value.
+    visible = {Rank.ACE: "A", Rank.TEN: "10", Rank.KING: "K", Rank.TWO: "2"}
+    for rank, label in visible.items():
         buf = io.StringIO()
         Console(file=buf, width=80, theme=build_theme(), legacy_windows=False).print(
             render_card(Card(rank, Suit.HEARTS))
         )
         out = buf.getvalue()
         assert "..." not in out, f"Card {rank} truncated: {out!r}"
-        assert rank.value in out
+        assert label in out

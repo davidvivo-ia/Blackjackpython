@@ -14,7 +14,14 @@ from blackjack21.domain.errors import DeckExhaustedError
 from blackjack21.domain.shuffler import Shuffler
 
 RESHUFFLE_THRESHOLD: int = 15
-"""Number of cards remaining at or below which we reshuffle."""
+"""Single-deck behaviour: reshuffle when this many cards remain.
+
+For multi-deck shoes we switch to a fraction-based "penetration"
+trigger instead — see :meth:`Deck._reshuffle_due`.
+"""
+
+SHOE_PENETRATION: float = 0.75
+"""Fraction of the shoe played before a reshuffle in multi-deck shoes."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,32 +31,47 @@ class Deck:
     Attributes:
         cards: The cards still to be drawn, top of the deck at index 0.
         discard: Cards already played and burned, in deposit order.
-        shuffler: Strategy used when reshuffling.
     """
 
     cards: tuple[Card, ...]
     discard: tuple[Card, ...] = field(default_factory=tuple)
 
     @classmethod
-    def fresh(cls, shuffler: Shuffler) -> Deck:
-        """Return a freshly shuffled 52-card deck."""
-        return cls(cards=shuffler.shuffled(standard_deck()))
+    def fresh(cls, shuffler: Shuffler, *, num_decks: int = 1) -> Deck:
+        """Return a freshly shuffled shoe of ``num_decks`` x 52 cards."""
+        if num_decks < 1:
+            raise ValueError("num_decks must be at least 1.")
+        base = standard_deck() * num_decks
+        return cls(cards=shuffler.shuffled(base))
 
     @property
     def remaining(self) -> int:
         return len(self.cards)
 
+    @property
+    def total(self) -> int:
+        """Cards in play + in the discard pile."""
+        return len(self.cards) + len(self.discard)
+
+    def _reshuffle_due(self) -> bool:
+        if not self.discard:
+            return False
+        # Single-deck preserves the BASIC original feel: shallow trigger.
+        if self.total <= 52:
+            return self.remaining <= RESHUFFLE_THRESHOLD
+        # Multi-deck shoes: standard casino penetration.
+        return self.remaining <= int(self.total * (1 - SHOE_PENETRATION))
+
     def draw(self, shuffler: Shuffler) -> tuple[Card, Deck]:
         """Draw the top card.
 
-        If the deck is at or below :data:`RESHUFFLE_THRESHOLD`, the
-        discard pile is folded back in before drawing. If even after
-        the reshuffle no cards remain (impossible in practice with
-        normal play but guarded for safety), raises
+        If the deck has crossed its reshuffle trigger, the discard
+        pile is folded back in before drawing. If after reshuffling
+        no cards remain (impossible in practice), raises
         :class:`DeckExhaustedError`.
         """
         deck = self
-        if deck.remaining <= RESHUFFLE_THRESHOLD and deck.discard:
+        if deck._reshuffle_due():
             deck = deck.reshuffle(shuffler)
         if not deck.cards:
             raise DeckExhaustedError("No cards available even after reshuffle.")

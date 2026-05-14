@@ -14,15 +14,21 @@ class Action(StrEnum):
     STAND = "stand"
     DOUBLE = "double"
     SPLIT = "split"
+    SURRENDER = "surrender"
 
 
-def legal_actions(hand: Hand, *, bankroll: int) -> frozenset[Action]:
+def legal_actions(
+    hand: Hand,
+    *,
+    bankroll: int,
+    allow_surrender: bool = True,
+) -> frozenset[Action]:
     """Return the set of actions legal on ``hand`` given ``bankroll``.
 
     A player can always hit or stand on a live hand. They can double
     on the first two cards as long as they can afford it. They can
-    split a pair (also subject to bankroll). Split hands keep all the
-    actions but blackjack/21 cannot still be played.
+    split a pair (also subject to bankroll). Late surrender is legal
+    only on the first decision of a non-split hand.
     """
     if hand.is_finished:
         return frozenset()
@@ -37,4 +43,6 @@ def legal_actions(hand: Hand, *, bankroll: int) -> frozenset[Action]:
         and bankroll >= hand.bet
     ):
         actions.add(Action.SPLIT)
+    if is_first_decision and allow_surrender and not hand.from_split:
+        actions.add(Action.SURRENDER)
     return frozenset(actions)

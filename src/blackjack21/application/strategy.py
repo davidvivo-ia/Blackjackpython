@@ -125,9 +125,15 @@ def _soft_action(total: int, upcard: int) -> Action:
 
 
 def _hard_action(total: int, upcard: int) -> Action:
-    """Hard-total chart."""
+    """Hard-total chart (with late-surrender additions)."""
     if total >= 17:
         return Action.STAND
+    # Late surrender: hard 16 vs 9/10/A and hard 15 vs 10 are textbook
+    # surrenders against an unfavourable dealer upcard.
+    if total == 16 and upcard in (9, 10, 11):
+        return Action.SURRENDER
+    if total == 15 and upcard == 10:
+        return Action.SURRENDER
     if 13 <= total <= 16:
         if 2 <= upcard <= 6:
             return Action.STAND
@@ -153,8 +159,9 @@ def _fallback(desired: Action, legal: frozenset[Action] | set[Action]) -> Action
     """If the ideal action is illegal, degrade gracefully.
 
     DOUBLE without first-card privilege → HIT.
-    SPLIT when not a pair → fall back to the next sensible move (HIT or
-    STAND depending on whether the recommendation came from a stiff).
+    SPLIT when not a pair → HIT.
+    SURRENDER when the variant disables it → HIT (the textbook
+    fallback for hard 15/16 vs strong upcard is to take another card).
     """
     if desired in legal:
         return desired
@@ -162,4 +169,30 @@ def _fallback(desired: Action, legal: frozenset[Action] | set[Action]) -> Action
         return Action.HIT if Action.HIT in legal else Action.STAND
     if desired is Action.SPLIT:
         return Action.HIT if Action.HIT in legal else Action.STAND
+    if desired is Action.SURRENDER:
+        return Action.HIT if Action.HIT in legal else Action.STAND
     return desired
+
+
+def explain(state: GameState) -> str:
+    """Return a one-line plain-language justification of the tip.
+
+    Phrased so a beginner reading the message learns *why* the move is
+    correct, not just what it is. Used by the TUI's TIP key.
+    """
+    if state.phase is not Phase.PLAYER_TURN or not state.player_hands:
+        return "Tip only available on your turn."
+    hand = state.active_hand
+    upcard = state.dealer.cards[0]
+    upcard_rank = "A" if upcard.rank is Rank.ACE else upcard.rank.value
+    if upcard_rank == "T":
+        upcard_rank = "10"
+    action = recommend(state)
+    if hand.is_pair:
+        rank = hand.cards[0].rank.value if hand.cards[0].rank is not Rank.TEN else "10"
+        subject = f"pair of {rank}s"
+    elif hand.value.is_soft:
+        subject = f"soft {hand.value.total}"
+    else:
+        subject = f"hard {hand.value.total}"
+    return f"{subject} vs dealer {upcard_rank} → {action.value.upper()}"

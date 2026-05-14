@@ -11,10 +11,10 @@ from blackjack21.domain.errors import InvalidBetError
 class GameRules:
     """Knobs that shape a session.
 
-    Defaults reproduce the BASIC original: minimum bet 1, maximum bet
-    500, dealer stands on soft 17. ``initial_bankroll`` is a 2026
-    addition since the original carried over only via terminal session
-    memory.
+    Defaults reproduce the BASIC original (single deck, S17, BJ 3:2).
+    Late surrender is enabled by default since 2026-era casinos almost
+    universally offer it on shoe games; pass ``allow_surrender=False``
+    for the strict original feel.
     """
 
     min_bet: int = 1
@@ -24,6 +24,8 @@ class GameRules:
     dealer_hits_soft_17: bool = False  # S17, like the original
     blackjack_pays_numerator: int = 3
     blackjack_pays_denominator: int = 2
+    num_decks: int = 1
+    allow_surrender: bool = True
 
     def validate_bet(self, bet: int, *, bankroll: int) -> None:
         """Raise :class:`InvalidBetError` if ``bet`` is illegal."""

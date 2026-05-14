@@ -1,13 +1,15 @@
 """Textual TUI for blackjack21 — Premiere Blackjack skin.
 
-The TUI is deliberately small: one screen, one widget tree. The
-state machine in :mod:`blackjack21.domain.state` is the source of
-truth; this module only renders snapshots and forwards user input.
+One screen, one widget tree. The state machine in
+:mod:`blackjack21.domain.state` is the source of truth; this module
+only renders snapshots and forwards user input.
 
-Visual reference: the Stitch "Premiere Blackjack" mock. We keep the
-terminal constraints (no glass blur, no backdrop) but echo the
-layout: balance / current-bet / hand-value row, dealer/you hand
-columns, chip selector for betting, gold accents.
+Layout inspired by the Stitch "Premiere Blackjack" mock: header bar,
+3-cell stats row (balance / current bet / hand value), dealer + you
+hand columns rendered as paper-white cards on felt-green, chip
+selector for betting, gold accents. We add a live session-counter
+row underneath (W/L/Push/BJ + streak) and an outcome banner that
+takes over the action area once a hand resolves.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from textual.reactive import reactive
 from textual.widgets import Button, Footer, Header, Input, Static
 
 from blackjack21.application.session import SavedSession, SessionStats
-from blackjack21.application.strategy import recommend
+from blackjack21.application.strategy import explain, recommend
 from blackjack21.application.use_cases import (
     deal_hand,
     finish_round,
@@ -36,10 +38,11 @@ from blackjack21.application.use_cases import (
 from blackjack21.domain.actions import Action
 from blackjack21.domain.errors import BlackjackError
 from blackjack21.domain.outcomes import Outcome
-from blackjack21.domain.rules import DEFAULT_RULES
+from blackjack21.domain.rules import DEFAULT_RULES, GameRules
 from blackjack21.domain.state import GameState, Phase, start_session
 from blackjack21.infrastructure.persistence import JsonSessionStore
 from blackjack21.infrastructure.rng import SystemShuffler
+from blackjack21.presentation.banner import outcome_banner
 from blackjack21.presentation.render import render_hand
 from blackjack21.presentation.theme import build_theme
 
@@ -66,14 +69,15 @@ class BlackjackApp(App[int]):
     """Main Textual application."""
 
     CSS = load_css()
-    TITLE = "PREMIERE BLACKJACK"
-    SUB_TITLE = "high-stakes table"
+    TITLE = "♠ ♥  PREMIERE  BLACKJACK  ♦ ♣"
+    SUB_TITLE = "high-stakes single-deck table"
 
     BINDINGS: ClassVar[list[Binding | tuple[str, str] | tuple[str, str, str]]] = [
         Binding("h", "act('hit')", "Hit", show=True),
         Binding("s", "act('stand')", "Stand", show=True),
         Binding("d", "act('double')", "Double", show=True),
         Binding("slash", "act('split')", "Split", show=True),
+        Binding("u", "act('surrender')", "Surrender", show=True),
         Binding("i", "take_insurance", "Insurance", show=False),
         Binding("n", "next_hand", "Next hand", show=True),
         Binding("c", "clear_bet", "Clear bet", show=False),
@@ -93,18 +97,27 @@ class BlackjackApp(App[int]):
         seed: int | None = None,
         store: JsonSessionStore | None = None,
         ascii_only: bool = False,
+        rules: GameRules | None = None,
     ) -> None:
         super().__init__()
-        # Registramos la paleta semantica en el Console de Rich que
-        # Textual usa para renderizar los Static/HandPanel. Sin esto
-        # los nombres "card-paper", "accent", etc. revientan al
-        # parsear el markup.
+        # Push the semantic palette onto Rich's Console so theme names
+        # like "accent" / "card-paper" resolve inside markup. Without
+        # this, MissingStyle is raised at first render.
         self.console.push_theme(build_theme())
         self._seed = seed
         self._store = store or JsonSessionStore()
         self._shuffler = SystemShuffler(seed=seed)
-        self._biggest_pot = 0
         self._ascii_only = ascii_only
+        self._rules = rules or DEFAULT_RULES
+        self._biggest_pot = 0
+        # Live session counters — incremented on every settlement.
+        self._wins = 0
+        self._losses = 0
+        self._pushes = 0
+        self._blackjacks = 0
+        self._busts = 0
+        self._surrenders = 0
+        self._streak = 0  # + winning streak, - losing streak
 
     # ---- composition --------------------------------------------------
 
@@ -113,22 +126,19 @@ class BlackjackApp(App[int]):
         with Vertical(id="main"):
             with Horizontal(id="stats-row"):
                 yield Static("BALANCE\n[bold accent]$1,000[/]", id="balance")
-                yield Static(
-                    "CURRENT BET\n[bold accent]$0[/]", id="current-bet"
-                )
-                yield Static(
-                    "HAND VALUE\n[bold accent]—[/]", id="hand-value"
-                )
+                yield Static("CURRENT BET\n[bold accent]$0[/]", id="current-bet")
+                yield Static("HAND VALUE\n[bold accent]—[/]", id="hand-value")
+            with Horizontal(id="counters-row"):
+                yield Static("", id="counters")
             yield Static("DEALER", classes="section-title")
             yield HandPanel(id="dealer-hand", classes="hand-row")
             yield Static("YOU", classes="section-title")
             yield HandPanel(id="player-hand", classes="hand-row")
-            with Horizontal(id="actions"):
-                yield Static("place a bet to start", id="status")
+            yield Static("place a bet to start", id="status")
             with Horizontal(id="chip-row"):
                 for denom in CHIP_DENOMINATIONS:
                     yield Button(
-                        f"${denom}",
+                        f"● ${denom}",
                         id=f"chip-{denom}",
                         classes=f"chip chip-{denom}",
                     )
@@ -141,8 +151,8 @@ class BlackjackApp(App[int]):
             yield Static("", id="message")
             yield Static(
                 "[bold]H[/]it · [bold]S[/]tand · [bold]D[/]ouble · "
-                "[bold]/[/] split · [bold]I[/]nsurance · [bold]T[/]ip · "
-                "[bold]N[/]ext · [bold]Q[/]uit",
+                "[bold]/[/] split · s[bold]U[/]rrender · [bold]I[/]nsurance · "
+                "[bold]T[/]ip · [bold]N[/]ext · [bold]Q[/]uit",
                 classes="help",
             )
         yield Footer()
@@ -151,10 +161,10 @@ class BlackjackApp(App[int]):
 
     def on_mount(self) -> None:
         saved = self._load_saved_session()
-        bankroll = saved.bankroll if saved else DEFAULT_RULES.initial_bankroll
+        bankroll = saved.bankroll if saved else self._rules.initial_bankroll
         self._biggest_pot = saved.stats.biggest_pot if saved else 0
         self.state = start_session(
-            rules=DEFAULT_RULES, shuffler=self._shuffler, bankroll=bankroll
+            rules=self._rules, shuffler=self._shuffler, bankroll=bankroll
         )
         # Hide the insurance input until needed.
         self.query_one("#bet-input", Input).display = False
@@ -191,14 +201,13 @@ class BlackjackApp(App[int]):
     def _add_chip(self, denom: int) -> None:
         if self.state is None or self.state.phase is not Phase.AWAITING_BET:
             return
-        rules = DEFAULT_RULES
         proposed = self.pending_bet + denom
         if proposed > self.state.bankroll:
             self.last_message = "Not enough balance for that chip."
             self._refresh()
             return
-        if proposed > rules.max_bet:
-            self.last_message = f"Max bet is ${rules.max_bet}."
+        if proposed > self._rules.max_bet:
+            self.last_message = f"Max bet is ${self._rules.max_bet}."
             self._refresh()
             return
         self.pending_bet = proposed
@@ -283,7 +292,7 @@ class BlackjackApp(App[int]):
     def action_take_insurance(self) -> None:
         if self.state is None or self.state.phase is not Phase.AWAITING_INSURANCE:
             return
-        # `I` alone = decline; players entering 0 in the input also work.
+        # `I` alone = decline; entering 0 in the input also works.
         self._submit_insurance("0")
 
     def action_next_hand(self) -> None:
@@ -295,20 +304,21 @@ class BlackjackApp(App[int]):
 
     def action_toggle_help(self) -> None:
         self.last_message = (
-            "Click chips to build a bet, then DEAL. Press T for a basic-strategy tip."
+            "Click chips to build a bet, then DEAL. "
+            "[bold]T[/] for a basic-strategy tip, [bold]U[/] to surrender."
         )
         self._refresh()
 
     def action_hint(self) -> None:
-        """Display the basic-strategy recommendation for the current decision."""
+        """Show the basic-strategy recommendation with a one-line reason."""
         if self.state is None or self.state.phase is not Phase.PLAYER_TURN:
             self.last_message = "Tip only available on your turn."
             self._refresh()
             return
         suggested = recommend(self.state)
+        reason = explain(self.state)
         self.last_message = (
-            f"[bold accent]TIP:[/] basic strategy says "
-            f"[bold]{suggested.value.upper()}[/]"
+            f"[bold accent]TIP[/] [bold]{suggested.value.upper()}[/] — {reason}"
         )
         self._refresh()
 
@@ -328,8 +338,36 @@ class BlackjackApp(App[int]):
                 self.last_message = str(exc)
                 return
             self.state = new_state
+            self._update_counters()
             self._update_biggest_pot()
             self._persist()
+
+    def _update_counters(self) -> None:
+        """Tally session counters from the just-resolved hand(s)."""
+        assert self.state is not None
+        for settlement in self.state.settlements:
+            outcome = settlement.outcome
+            if outcome is Outcome.WIN:
+                self._wins += 1
+                self._streak = self._streak + 1 if self._streak >= 0 else 1
+            elif outcome is Outcome.BLACKJACK:
+                self._blackjacks += 1
+                self._wins += 1
+                self._streak = self._streak + 1 if self._streak >= 0 else 1
+            elif outcome is Outcome.LOSS:
+                self._losses += 1
+                self._streak = self._streak - 1 if self._streak <= 0 else -1
+            elif outcome is Outcome.BUST:
+                self._busts += 1
+                self._losses += 1
+                self._streak = self._streak - 1 if self._streak <= 0 else -1
+            elif outcome is Outcome.PUSH:
+                self._pushes += 1
+                # Push doesn't break a streak.
+            elif outcome is Outcome.SURRENDER:
+                self._surrenders += 1
+                self._losses += 1
+                self._streak = self._streak - 1 if self._streak <= 0 else -1
 
     def _update_biggest_pot(self) -> None:
         assert self.state is not None
@@ -355,6 +393,7 @@ class BlackjackApp(App[int]):
         if self.state is None:
             return
         self._refresh_stats_row()
+        self._refresh_counters_row()
         self._refresh_hands()
         self._refresh_status()
         self._refresh_chip_controls()
@@ -372,6 +411,22 @@ class BlackjackApp(App[int]):
         self.query_one("#hand-value", Static).update(
             f"HAND VALUE\n[bold accent]{self._displayed_hand_value()}[/]"
         )
+
+    def _refresh_counters_row(self) -> None:
+        if self._streak > 0:
+            streak_str = f"[bold accent]+{self._streak}[/]"
+        elif self._streak < 0:
+            streak_str = f"[bold danger]{self._streak}[/]"
+        else:
+            streak_str = "[muted]0[/]"
+        counters = (
+            f"[bold accent-dim]W[/] [bold]{self._wins:>3}[/]   "
+            f"[bold accent-dim]L[/] [bold]{self._losses:>3}[/]   "
+            f"[bold accent-dim]P[/] [bold]{self._pushes:>3}[/]   "
+            f"[bold accent-dim]BJ[/] [bold]{self._blackjacks:>3}[/]   "
+            f"[bold accent-dim]STREAK[/] {streak_str}"
+        )
+        self.query_one("#counters", Static).update(counters)
 
     def _displayed_bet(self) -> int:
         assert self.state is not None
@@ -428,26 +483,28 @@ class BlackjackApp(App[int]):
                 self._hide_input(bet_input)
             case Phase.AWAITING_INSURANCE:
                 status.update(
-                    "insurance? type amount and Enter, or press [bold]I[/] to decline"
+                    "insurance? type amount and Enter, "
+                    "or press [bold]I[/] to decline"
                 )
                 self._show_input(bet_input, placeholder="insurance (0 = none)")
             case Phase.PLAYER_TURN:
                 legal = ", ".join(a.value for a in sorted(self.state.legal_actions()))
                 status.update(
-                    f"your turn: {legal} -- press [bold]H[/]/[bold]S[/]/"
-                    "[bold]D[/]/[bold]/[/]"
+                    f"your turn: {legal} — press [bold]H[/]/[bold]S[/]/"
+                    "[bold]D[/]/[bold]/[/]/[bold]U[/]"
                 )
                 self._hide_input(bet_input)
             case Phase.DEALER_TURN:
                 status.update("dealer is playing...")
                 self._hide_input(bet_input)
             case Phase.HAND_RESOLVED:
-                outcome = self.state.settlements[0].outcome
-                status.update(_outcome_banner(outcome))
+                settlement = self.state.settlements[0]
+                banner = outcome_banner(settlement.outcome, settlement.net)
+                status.update(banner)
                 self._hide_input(bet_input)
             case Phase.GAME_OVER:
                 status.update(
-                    "[danger]BALANCE EXHAUSTED[/] -- press Q to quit, "
+                    "[danger]BALANCE EXHAUSTED[/] — press Q to quit, "
                     "then 'blackjack21 reset' to start over"
                 )
                 self._hide_input(bet_input)
@@ -483,15 +540,3 @@ class BlackjackApp(App[int]):
             widget.value = ""
         if self.focused is widget:
             self.set_focus(None)
-
-
-def _outcome_banner(outcome: Outcome) -> str:
-    table = {
-        Outcome.WIN: "[bold accent]WIN[/] - press N for next hand",
-        Outcome.BLACKJACK: "[bold reverse accent]BLACKJACK[/] - press N for next hand",
-        Outcome.LOSS: "[bold danger]LOSS[/] - press N for next hand",
-        Outcome.BUST: "[bold danger]BUST[/] - press N for next hand",
-        Outcome.PUSH: "[bold warning]PUSH[/] - press N for next hand",
-        Outcome.SURRENDER: "[bold warning]SURRENDER[/] - press N for next hand",
-    }
-    return table[outcome]

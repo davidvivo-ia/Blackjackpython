@@ -65,7 +65,11 @@ class GameState:
         """Actions legal right now on the active hand."""
         if self.phase is not Phase.PLAYER_TURN:
             return frozenset()
-        return legal_actions(self.active_hand, bankroll=self.bankroll)
+        return legal_actions(
+            self.active_hand,
+            bankroll=self.bankroll,
+            allow_surrender=self.rules.allow_surrender,
+        )
 
 
 def start_session(
@@ -76,7 +80,7 @@ def start_session(
     return GameState(
         rules=rules,
         bankroll=starting,
-        deck=Deck.fresh(shuffler),
+        deck=Deck.fresh(shuffler, num_decks=rules.num_decks),
         phase=Phase.AWAITING_BET,
     )
 
@@ -153,6 +157,10 @@ def apply_action(state: GameState, action: Action, *, shuffler: Shuffler) -> Gam
             return _apply_double(state, shuffler=shuffler)
         case Action.SPLIT:
             return _apply_split(state, shuffler=shuffler)
+        case Action.SURRENDER:
+            return _advance_or_dealer(
+                _replace_active(state, state.active_hand.surrender())
+            )
 
 
 def _apply_hit(state: GameState, *, shuffler: Shuffler) -> GameState:
