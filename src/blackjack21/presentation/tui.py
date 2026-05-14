@@ -25,6 +25,7 @@ from textual.reactive import reactive
 from textual.widgets import Button, Footer, Header, Input, Static
 
 from blackjack21.application.session import SavedSession, SessionStats
+from blackjack21.application.strategy import recommend
 from blackjack21.application.use_cases import (
     deal_hand,
     finish_round,
@@ -77,6 +78,7 @@ class BlackjackApp(App[int]):
         Binding("n", "next_hand", "Next hand", show=True),
         Binding("c", "clear_bet", "Clear bet", show=False),
         Binding("enter", "deal", "Deal", show=False),
+        Binding("t", "hint", "Tip", show=True),
         Binding("question_mark", "toggle_help", "Help", show=True),
         Binding("q", "quit_save", "Quit", show=True),
     ]
@@ -139,7 +141,7 @@ class BlackjackApp(App[int]):
             yield Static("", id="message")
             yield Static(
                 "[bold]H[/]it · [bold]S[/]tand · [bold]D[/]ouble · "
-                "[bold]/[/] split · [bold]I[/]nsurance · "
+                "[bold]/[/] split · [bold]I[/]nsurance · [bold]T[/]ip · "
                 "[bold]N[/]ext · [bold]Q[/]uit",
                 classes="help",
             )
@@ -293,7 +295,20 @@ class BlackjackApp(App[int]):
 
     def action_toggle_help(self) -> None:
         self.last_message = (
-            "Click chips to build a bet, then DEAL. Aces count as 11 unless that busts."
+            "Click chips to build a bet, then DEAL. Press T for a basic-strategy tip."
+        )
+        self._refresh()
+
+    def action_hint(self) -> None:
+        """Display the basic-strategy recommendation for the current decision."""
+        if self.state is None or self.state.phase is not Phase.PLAYER_TURN:
+            self.last_message = "Tip only available on your turn."
+            self._refresh()
+            return
+        suggested = recommend(self.state)
+        self.last_message = (
+            f"[bold accent]TIP:[/] basic strategy says "
+            f"[bold]{suggested.value.upper()}[/]"
         )
         self._refresh()
 
