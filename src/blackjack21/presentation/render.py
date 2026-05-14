@@ -165,7 +165,7 @@ def render_card(card: Card, *, ascii_only: bool = False) -> RenderableType:
         marker = f"bold {style}" if bold else style
         lines.append(f"[{marker}]{s}[/]")
     face = Text.from_markup("\n".join(lines))
-    return Panel(
+    panel = Panel(
         face,
         width=CARD_WIDTH,
         height=CARD_HEIGHT,
@@ -174,6 +174,7 @@ def render_card(card: Card, *, ascii_only: bool = False) -> RenderableType:
         padding=(0, 1),
         box=ROUNDED,
     )
+    return _with_shadow(panel)
 
 
 def render_back(*, ascii_only: bool = False) -> RenderableType:
@@ -204,7 +205,7 @@ def render_back(*, ascii_only: bool = False) -> RenderableType:
             "◆ ◆ ◆ ◆"
         )
     face = Text(pattern, style="card-back")
-    return Panel(
+    panel = Panel(
         Align.center(face, vertical="middle"),
         width=CARD_WIDTH,
         height=CARD_HEIGHT,
@@ -213,6 +214,19 @@ def render_back(*, ascii_only: bool = False) -> RenderableType:
         padding=(0, 1),
         box=ROUNDED,
     )
+    return _with_shadow(panel)
+
+
+# Shadow drawn directly under each card to give the table a hint of
+# physical depth. Two cells of right-offset and a darker gold so it
+# reads as ambient occlusion, not a second border.
+_SHADOW_STYLE = "accent-dim"
+_SHADOW_CHAR = "▔"
+
+
+def _with_shadow(panel: Panel) -> RenderableType:
+    shadow = Text(" " + _SHADOW_CHAR * (CARD_WIDTH - 1), style=_SHADOW_STYLE)
+    return Group(panel, shadow)
 
 
 def render_hand(

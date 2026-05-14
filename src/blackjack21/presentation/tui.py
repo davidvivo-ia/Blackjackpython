@@ -28,9 +28,13 @@ from dataclasses import dataclass
 from importlib import resources
 from typing import ClassVar
 
-from rich.console import RenderableType
+from rich.align import Align
+from rich.box import HEAVY
+from rich.console import Group, RenderableType
+from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
+from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -44,6 +48,7 @@ from blackjack21.application.achievements import (
 from blackjack21.application.achievements import (
     evaluate as evaluate_achievements,
 )
+from blackjack21.application.odds import prob_bust_on_hit
 from blackjack21.application.session import SavedSession, SessionStats
 from blackjack21.application.strategy import explain, recommend
 from blackjack21.application.use_cases import (
@@ -54,7 +59,6 @@ from blackjack21.application.use_cases import (
     take_insurance,
 )
 from blackjack21.domain.actions import Action
-from blackjack21.domain.cards import Rank
 from blackjack21.domain.errors import BlackjackError
 from blackjack21.domain.hand import Hand
 from blackjack21.domain.outcomes import Outcome
@@ -132,6 +136,34 @@ class HandRecord:
 def _hand_text(hand: Hand) -> str:
     """Render a hand as a compact one-line ``T♠ K♥ 4♣`` string."""
     return " ".join(str(c) for c in hand.cards)
+
+
+def _insurance_panel() -> RenderableType:
+    """Center-stage prompt that lights up while waiting on the insurance call."""
+    title = Text("INSURANCE?", style="bold warning", justify="center")
+    body = Text(
+        "Dealer's upcard is an Ace.\n"
+        "Half-bet side wager that pays 2:1 if the dealer has natural BJ.",
+        style="warning",
+        justify="center",
+    )
+    keys = Text(
+        "Y / click  →  buy at the max          "
+        "I / NO THANKS  →  decline",
+        style="muted",
+        justify="center",
+    )
+    return Panel(
+        Align.center(
+            Group(title, Text(""), body, Text(""), keys),
+            vertical="middle",
+        ),
+        border_style="warning",
+        style="on #0F3D24",
+        box=HEAVY,
+        padding=(0, 4),
+        height=8,
+    )
 
 
 def _read_base_css() -> str:
@@ -366,9 +398,23 @@ class BlackjackApp(App[int]):
                 yield Static("HAND VALUE\n[bold accent]—[/]", id="hand-value")
             with Horizontal(id="counters-row"):
                 yield Static("", id="counters")
-            yield Static("DEALER", classes="section-title")
+            yield Static(
+                Rule(
+                    title="[bold accent]♠  DEALER  ♥[/]",
+                    style="accent-dim",
+                ),
+                id="dealer-title",
+                classes="section-title",
+            )
             yield HandPanel(id="dealer-hand", classes="hand-row")
-            yield Static("YOU", classes="section-title")
+            yield Static(
+                Rule(
+                    title="[bold accent]♦  YOU  ♣[/]",
+                    style="accent-dim",
+                ),
+                id="player-title",
+                classes="section-title",
+            )
             yield HandPanel(id="player-hand", classes="hand-row")
             yield Static("place a bet to start", id="status")
             with Horizontal(id="chip-row"):
@@ -782,7 +828,16 @@ class BlackjackApp(App[int]):
         assert self.state is not None
         if not self.state.player_hands:
             return "—"
-        return str(self.state.active_hand.value.total)
+        hand = self.state.active_hand
+        total = hand.value.total
+        if (
+            self.state.phase is Phase.PLAYER_TURN
+            and not hand.value.is_bust
+            and total < 21
+        ):
+            risk = prob_bust_on_hit(hand, self.state.deck)
+            return f"{total}\n[muted]bust on hit: {risk * 100:.0f}%[/]"
+        return str(total)
 
     def _refresh_hands(self) -> None:
         assert self.state is not None
@@ -822,12 +877,7 @@ class BlackjackApp(App[int]):
                     "[accent]click chips to build your bet, then DEAL[/]"
                 )
             case Phase.AWAITING_INSURANCE:
-                up = self.state.dealer.cards[0]
-                up_label = "A" if up.rank is Rank.ACE else up.rank.value
-                status.update(
-                    f"[accent]dealer shows {up_label} — buy insurance "
-                    f"(half bet pays 2:1 if dealer has blackjack)?[/]"
-                )
+                status.update(_insurance_panel())
             case Phase.PLAYER_TURN:
                 legal = ", ".join(a.value for a in sorted(self.state.legal_actions()))
                 status.update(f"your turn: {legal}")
