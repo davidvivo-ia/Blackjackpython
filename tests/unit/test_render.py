@@ -45,4 +45,4 @@ def test_render_hand_hides_dealer_hole() -> None:
     visible = render(render_hand(hand))
     hidden = render(render_hand(hand, hide_first=True))
     assert "BLACKJACK" in visible
-    assert "showing" in hidden
+    assert "DEALER SHOWS" in hidden

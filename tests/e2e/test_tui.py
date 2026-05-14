@@ -16,29 +16,42 @@ from blackjack21.presentation.tui import BlackjackApp
 
 
 @pytest.mark.asyncio
-async def test_input_hidden_during_player_turn(tmp_path) -> None:
-    """After placing a bet, the bet input must hide so H/S/D bindings fire."""
+async def test_chip_betting_flow(tmp_path) -> None:
+    """Clicking a $25 chip and pressing DEAL must place a 25 bet."""
     app = BlackjackApp(seed=42, store=JsonSessionStore(tmp_path / "s.json"))
     async with app.run_test() as pilot:
         assert app.state is not None
         assert app.state.phase is Phase.AWAITING_BET
-        bet_input = app.query_one("#bet-input")
-        assert bet_input.display
-        await pilot.click("#bet-input")
-        await pilot.press("2", "5", "enter")
+        assert app.pending_bet == 0
+        await pilot.click("#chip-25")
+        assert app.pending_bet == 25
+        await pilot.click("#deal-btn")
         assert app.state.phase in (
             Phase.PLAYER_TURN,
             Phase.AWAITING_INSURANCE,
             Phase.HAND_RESOLVED,
         )
         if app.state.phase is Phase.PLAYER_TURN:
-            assert not bet_input.display
             cards_before = len(app.state.active_hand.cards)
             await pilot.press("h")
             assert (
                 len(app.state.active_hand.cards) > cards_before
                 or app.state.phase is not Phase.PLAYER_TURN
             )
+
+
+@pytest.mark.asyncio
+async def test_clear_bet_resets_pending(tmp_path) -> None:
+    """CLEAR BET must zero the pending stake without dealing."""
+    app = BlackjackApp(seed=42, store=JsonSessionStore(tmp_path / "s.json"))
+    async with app.run_test() as pilot:
+        await pilot.click("#chip-100")
+        await pilot.click("#chip-5")
+        assert app.pending_bet == 105
+        await pilot.click("#clear-bet-btn")
+        assert app.pending_bet == 0
+        assert app.state is not None
+        assert app.state.phase is Phase.AWAITING_BET
 
 
 def test_card_render_does_not_truncate() -> None:
