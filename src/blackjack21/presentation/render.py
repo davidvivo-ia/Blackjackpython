@@ -4,10 +4,15 @@ These helpers produce :class:`rich.console.RenderableType` objects so
 they can be displayed either on a plain ``rich.console.Console`` or
 inside Textual widgets that accept ``RenderableType``.
 
-Card faces follow the "Premiere Blackjack" Stitch mock: near-white
-paper with classic red/black suit colors, gold border, rank+suit
-stacked in the top-left and mirrored in the bottom-right, and a big
-suit/face mark centered — exactly like a real playing card.
+Card faces follow the "Premiere Blackjack" Stitch mock plus classic
+Bicycle-deck pip patterns:
+
+- Rank top-left, suit below it; mirrored bottom-right.
+- Pip cards 2-10 lay their pips out in the canonical positions you'd
+  see on a real card (e.g. 6 = 2x3 grid, 7 = same plus middle-top).
+- J/Q/K show a suit-glyph above and below the bold rank letter, the
+  classic "court card" look in monospace.
+- Aces show a single big centered pip — the unmistakable A move.
 """
 
 from __future__ import annotations
@@ -23,17 +28,48 @@ from blackjack21.domain.cards import Card, Rank, Suit
 from blackjack21.domain.hand import Hand, evaluate
 
 # Card geometry: 11 cells wide x 9 cells tall outer. With padding
-# (0, 1) and the two-cell border, that leaves a 7x7 content grid
-# which is plenty of room for the corner pips and a big centre mark.
+# (0, 1) and the two-cell border, that leaves a 7x7 content grid:
+# row 0 = top rank, row 1 = top suit, rows 2-4 = pip pattern area,
+# row 5 = bottom suit, row 6 = bottom rank.
 CARD_WIDTH = 11
 CARD_HEIGHT = 9
 _INNER_WIDTH = CARD_WIDTH - 2 - 2  # borders + padding
+_INNER_HEIGHT = CARD_HEIGHT - 2  # borders only (no vertical padding)
 
 # Style tokens — registered in ``theme.build_theme``.
 _CARD_FACE_BG = "#F5F1E6"
 _CARD_BACK_BG = "#0A4D2B"
 _CARD_BORDER = "accent"
 _CARD_BORDER_DIM = "accent-dim"
+
+# Pip layout: each value is a frozenset of (col_idx, row_idx) within
+# the 3-col x 3-row pip area. col_idx in {0,1,2} maps to inner cells
+# (1, 3, 5); row_idx in {0,1,2} maps to inner rows (2, 3, 4). With
+# only 3 rows, 9 and 10 share the full 3x3 grid — the corner rank
+# label ("9" vs "10") disambiguates, as it does on real cards when
+# the layout is unusually compact.
+_PIP_COLS: tuple[int, int, int] = (1, 3, 5)
+_PIP_ROW_BASE = 2  # inner row offset where the pip area starts
+
+_NUM_PIPS: dict[Rank, frozenset[tuple[int, int]]] = {
+    Rank.TWO:   frozenset({(1, 0), (1, 2)}),
+    Rank.THREE: frozenset({(1, 0), (1, 1), (1, 2)}),
+    Rank.FOUR:  frozenset({(0, 0), (2, 0), (0, 2), (2, 2)}),
+    Rank.FIVE:  frozenset({(0, 0), (2, 0), (1, 1), (0, 2), (2, 2)}),
+    Rank.SIX:   frozenset({(0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2)}),
+    Rank.SEVEN: frozenset(
+        {(0, 0), (1, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2)}
+    ),
+    Rank.EIGHT: frozenset(
+        {(0, 0), (1, 0), (2, 0), (0, 1), (2, 1), (0, 2), (1, 2), (2, 2)}
+    ),
+    Rank.NINE: frozenset(
+        {(0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1), (0, 2), (1, 2), (2, 2)}
+    ),
+    Rank.TEN: frozenset(
+        {(0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1), (0, 2), (1, 2), (2, 2)}
+    ),
+}
 
 
 def _suit_style(suit: Suit) -> str:
@@ -46,59 +82,65 @@ def _display_rank(rank: Rank) -> str:
     return "10" if rank is Rank.TEN else rank.value
 
 
-def _centre_glyph(card: Card, ascii_only: bool) -> str:
-    """Return what goes on the big centre row of the card.
+def _build_face_grid(card: Card, *, ascii_only: bool) -> list[list[str]]:
+    """Return the inner 7x7 grid of glyphs for a card face."""
+    rank_text = _display_rank(card.rank)
+    corner_suit = card.suit.value if ascii_only else card.suit.glyph
 
-    Aces and number cards show the suit glyph; face cards show their
-    rank letter so a quick glance distinguishes a J of spades from an
-    A of spades without reading the corners.
-    """
+    grid: list[list[str]] = [
+        [" "] * _INNER_WIDTH for _ in range(_INNER_HEIGHT)
+    ]
+
+    # Top-left corner: rank on row 0, suit on row 1.
+    for i, ch in enumerate(rank_text):
+        grid[0][i] = ch
+    grid[1][0] = corner_suit
+
+    # Bottom-right corner: suit on row 5, rank on row 6 (right-aligned).
+    grid[_INNER_HEIGHT - 2][_INNER_WIDTH - 1] = corner_suit
+    rank_start = _INNER_WIDTH - len(rank_text)
+    for i, ch in enumerate(rank_text):
+        grid[_INNER_HEIGHT - 1][rank_start + i] = ch
+
+    # Centre decoration: pip pattern, face decoration or big ace pip.
+    centre_col = _PIP_COLS[1]
     if card.rank in (Rank.JACK, Rank.QUEEN, Rank.KING):
-        return card.rank.value
-    return card.suit.value if ascii_only else card.suit.glyph
+        grid[_PIP_ROW_BASE][centre_col] = corner_suit
+        grid[_PIP_ROW_BASE + 1][centre_col] = card.rank.value
+        grid[_PIP_ROW_BASE + 2][centre_col] = corner_suit
+    elif card.rank is Rank.ACE:
+        # Single oversized centre pip — make it pop by also drawing
+        # the suit at the cells directly above/below for a "fan".
+        grid[_PIP_ROW_BASE + 1][centre_col] = corner_suit
+    elif card.rank in _NUM_PIPS:
+        for col_idx, row_idx in _NUM_PIPS[card.rank]:
+            grid[_PIP_ROW_BASE + row_idx][_PIP_COLS[col_idx]] = corner_suit
+
+    return grid
 
 
 def render_card(card: Card, *, ascii_only: bool = False) -> RenderableType:
     """Return a Rich Panel that draws a single playing card.
 
-    The face is a 7-line grid laid out like a real card::
-
-        A
-        ♠
-
-             ♠
-
-                  ♠
-                  A
-
-    Top-left has the rank stacked above the suit; the bottom-right
-    has the same pair mirrored. The big centre mark is the suit for
-    pip cards, or the rank letter for J/Q/K.
+    Rank+suit indices in the top-left and bottom-right corners frame a
+    centre area that shows either a classical pip pattern (2-10), a
+    suit-letter-suit court look (J/Q/K), or a big single pip (A).
     """
-    rank_text = _display_rank(card.rank)
-    corner_suit = card.suit.value if ascii_only else card.suit.glyph
-    centre = _centre_glyph(card, ascii_only)
+    grid = _build_face_grid(card, ascii_only=ascii_only)
     style = _suit_style(card.suit)
 
-    blank = " " * _INNER_WIDTH
-    lines = (
-        rank_text.ljust(_INNER_WIDTH),
-        corner_suit.ljust(_INNER_WIDTH),
-        blank,
-        centre.center(_INNER_WIDTH),
-        blank,
-        corner_suit.rjust(_INNER_WIDTH),
-        rank_text.rjust(_INNER_WIDTH),
-    )
-    face = Text.from_markup(
-        f"[bold {style}]{lines[0]}[/]\n"
-        f"[{style}]{lines[1]}[/]\n"
-        f"[{style}]{lines[2]}[/]\n"
-        f"[bold {style}]{lines[3]}[/]\n"
-        f"[{style}]{lines[4]}[/]\n"
-        f"[{style}]{lines[5]}[/]\n"
-        f"[bold {style}]{lines[6]}[/]"
-    )
+    lines: list[str] = []
+    for r, row in enumerate(grid):
+        s = "".join(row)
+        # Bold the rank rows (corners) and the central face-letter row
+        # for J/Q/K (which is row 3 — _PIP_ROW_BASE + 1).
+        bold = r in (0, _INNER_HEIGHT - 1) or (
+            card.rank in (Rank.JACK, Rank.QUEEN, Rank.KING)
+            and r == _PIP_ROW_BASE + 1
+        )
+        marker = f"bold {style}" if bold else style
+        lines.append(f"[{marker}]{s}[/]")
+    face = Text.from_markup("\n".join(lines))
     return Panel(
         face,
         width=CARD_WIDTH,
